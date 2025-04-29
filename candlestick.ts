@@ -1,5 +1,5 @@
 import * as R from "ramda"
-import type { Candlestick, Accumulator, Tier } from "./types.ts"
+import type { Candlestick, Accumulator, Tier } from "./types.d.ts"
 import { getOpen, getClose, getHigh, getLow } from "./utils.ts"
 
 /**

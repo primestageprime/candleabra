@@ -3,7 +3,7 @@ import { assertEquals } from "jsr:@std/assert";
 import { 
   processValueTwoFive,
 } from "./candlestick.ts";
-import type { Accumulator } from "./types.ts";
+import type { Accumulator } from "./types.d.ts";
 const values = [1,1,1,1,1, 1,1,9,9,1, 1,1,9,1,1, 1,1,1,1,1]
 
 const nominal = {open: 1, close: 1, high: 1, low: 1}

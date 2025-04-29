@@ -1,5 +1,5 @@
 import * as R from "ramda"
-import type { Candlestick } from "./types.ts"
+import type { Candlestick } from "./types.d.ts"
 
 export const getOpen = R.pipe<[Candlestick[]], Candlestick, number>(
   R.head,

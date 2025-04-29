@@ -2,6 +2,7 @@
   "name": "@primestage/candleabra",
   "version": "0.1.1",
   "exports": "./candlestick.ts",
+  "types": "./types.d.ts",
   "tasks": {
     "test": "deno test --allow-read"
   },
