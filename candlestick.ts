@@ -1,11 +1,12 @@
+import * as R from "ramda"
 /**
  * Represents a candlestick with open, close, high, and low values
  */
 export interface Candlestick {
-  open: number | null;
-  close: number | null;
-  high: number | null;
-  low: number | null;
+  open: number;
+  close: number;
+  high: number;
+  low: number;
 }
 
 /**
@@ -23,10 +24,10 @@ export interface Accumulator {
  */
 export function createEmptyCandlestick(): Candlestick {
   return {
-    open: null,
-    close: null,
-    high: null,
-    low: null
+    open: 0,
+    close: 0,
+    high: 0,
+    low: 0
   };
 }
 
@@ -40,6 +41,35 @@ export function createEmptyAccumulator(): Accumulator {
     fiveSamples: [],
     allTime: createEmptyCandlestick()
   };
+}
+
+
+
+const getOpen = R.pipe<[Candlestick[]], Candlestick, number>(
+  R.head as (arr: Candlestick[]) => Candlestick,
+  R.prop('open') as (c: Candlestick) => number
+);
+
+const getClose = R.pipe<[Candlestick[]], Candlestick, number>(
+  R.last as (arr: Candlestick[]) => Candlestick,
+  R.prop('close') as (c: Candlestick) => number
+);
+
+const getHigh = (list: Candlestick[]) => {
+  if (list.length === 1) {
+    return list[0].high
+  }
+  return R.reduce<Candlestick, number>(
+    (acc, c) => R.isNil(acc) ? c.high : Math.max(acc, c.high),
+    R.head(list)?.high ?? Infinity
+  )(R.tail(list))
+}
+
+const getLow = (list: Candlestick[]) => {
+  return R.reduce<Candlestick, number>(
+    (acc, c) => R.isNil(acc) ? c.low : Math.min(acc, c.low),
+    R.head(list)?.low ?? Infinity
+  )(R.tail(list))
 }
 
 /**
@@ -67,46 +97,23 @@ export function updateOneSampleCandlesticks(accumulator: Accumulator, value: num
   };
 }
 
-/**
- * Creates a two-sample candlestick from two consecutive one-sample candlesticks
- */
-export function createTwoSampleCandlestick(first: Candlestick, second: Candlestick): Candlestick {
-  if (first.open === null || second.close === null || 
-      first.high === null || second.high === null ||
-      first.low === null || second.low === null) {
-    throw new Error("Cannot create two-sample candlestick from incomplete candlesticks");
-  }
 
-  return {
-    open: first.open,
-    close: second.close,
-    high: Math.max(first.high, second.high),
-    low: Math.min(first.low, second.low)
-  };
-}
 
 /**
  * Updates the two-sample candlesticks in the accumulator
  */
 export function updateTwoSampleCandlesticks(accumulator: Accumulator): Accumulator {
-  const { oneSample } = accumulator;
-  
-  // We need at least 2 one-sample candlesticks to create a two-sample candlestick
-  if (oneSample.length < 2) {
-    return accumulator;
-  }
+  const { oneSample } = accumulator;  
 
   // Get the last two one-sample candlesticks
   const lastTwo = oneSample.slice(-2);
-  
-  // If we already have a two-sample candlestick for these one-sample candlesticks, skip
-  if (accumulator.twoSamples.length * 2 >= oneSample.length - 1) {
-    return accumulator;
-  }
+  const open = getOpen(lastTwo)
+  const close = getClose(lastTwo)
+  const high = getHigh(lastTwo)
+  const low = getLow(lastTwo)
 
   // Create a new two-sample candlestick
-  const newTwoSample = createTwoSampleCandlestick(lastTwo[0], lastTwo[1]);
-
+  const newTwoSample = {open, close, high, low};
   return {
     ...accumulator,
     twoSamples: [...accumulator.twoSamples, newTwoSample]

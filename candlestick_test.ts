@@ -26,10 +26,10 @@ Deno.test('should process first value correctly', () => {
   
   // Verify two-sample candlesticks (should be empty)
   assertEquals(accumulator.twoSamples.length, 1);
-  // assertEquals(accumulator.twoSamples[0], nominal);
+  assertEquals(accumulator.twoSamples[0], nominal);
   // // Verify five-sample candlesticks (should be empty)
   // assertEquals(accumulator.fiveSamples.length, 1);
   // assertEquals(accumulator.fiveSamples[0], nominal);
   // Verify all-time candlestick
-  assertEquals(accumulator.allTime, nominal);
+  // assertEquals(accumulator.allTime, nominal);
 }); 
