@@ -123,23 +123,21 @@ export function updateTwoSampleCandlesticks(accumulator: Accumulator): Accumulat
 /**
  * Updates the all-time candlestick with a new value
  */
-export function updateAllTimeCandlestick(accumulator: Accumulator, value: number): Accumulator {
-  const currentAllTime = accumulator.allTime;
-  
-  // If the all-time candlestick is empty, initialize it with the new value
-  if (currentAllTime.open === null) {
-    return {
-      ...accumulator,
-      allTime: createOneSampleCandlestick(value)
-    };
-  }
+export function updateAllTimeCandlestick(accumulator: Accumulator): Accumulator {
+
+  const allTime = [...accumulator.oneSample, ...accumulator.twoSamples, ...accumulator.fiveSamples]
+
+  const open = getOpen(allTime)
+  const close = getClose(allTime)
+  const high = getHigh(allTime)
+  const low = getLow(allTime)
   
   // Update the all-time candlestick with the new value
   const updatedAllTime: Candlestick = {
-    open: currentAllTime.open, // Open remains the same (first value)
-    close: value, // Close is updated to the new value
-    high: Math.max(currentAllTime.high!, value), // High is the maximum of current high and new value
-    low: Math.min(currentAllTime.low!, value) // Low is the minimum of current low and new value
+    open,
+    close,
+    high,
+    low
   };
   
   return {
@@ -152,26 +150,19 @@ export function updateAllTimeCandlestick(accumulator: Accumulator, value: number
  * Creates a five-sample candlestick from two two-sample candlesticks and one one-sample candlestick
  */
 export function createFiveSampleCandlestick(
-  firstTwoSample: Candlestick, 
-  secondTwoSample: Candlestick, 
-  lastOneSample: Candlestick
+  accumulator: Accumulator
 ): Candlestick {
-  // Validate all candlesticks are complete
-  if (firstTwoSample.open === null || firstTwoSample.close === null || 
-      firstTwoSample.high === null || firstTwoSample.low === null ||
-      secondTwoSample.open === null || secondTwoSample.close === null || 
-      secondTwoSample.high === null || secondTwoSample.low === null ||
-      lastOneSample.open === null || lastOneSample.close === null || 
-      lastOneSample.high === null || lastOneSample.low === null) {
-    throw new Error("Cannot create five-sample candlestick from incomplete candlesticks");
-  }
+  const lastOneSample = R.last(accumulator.oneSample)
+  const [firstTwoSample, secondTwoSample] = R.takeLast(2, accumulator.twoSamples)
+  
+  const samples = R.filter(R.isNotNil, [firstTwoSample, secondTwoSample, lastOneSample])
 
   // First open from first two-sample, last close from last one-sample, max of all highs, min of all lows
   return {
-    open: firstTwoSample.open,
-    close: lastOneSample.close,
-    high: Math.max(firstTwoSample.high, secondTwoSample.high, lastOneSample.high),
-    low: Math.min(firstTwoSample.low, secondTwoSample.low, lastOneSample.low)
+    open: getOpen(samples),
+    close: getClose(samples),
+    high: getHigh(samples),
+    low: getLow(samples)
   };
 }
 
@@ -179,32 +170,9 @@ export function createFiveSampleCandlestick(
  * Updates the five-sample candlesticks in the accumulator
  */
 export function updateFiveSampleCandlesticks(accumulator: Accumulator): Accumulator {
-  const { oneSample, twoSamples } = accumulator;
-  
-  // We need at least 5 one-sample candlesticks
-  if (oneSample.length < 5) {
-    return accumulator;
-  }
-
-  // Calculate how many complete five-sample candlesticks we should have
-  const expectedFiveSampleCount = Math.floor(oneSample.length / 5);
-  
-  // If we already have all the five-sample candlesticks we need, skip
-  if (accumulator.fiveSamples.length >= expectedFiveSampleCount) {
-    return accumulator;
-  }
 
   // Get the five samples for the next candlestick
-  const startIndex = accumulator.fiveSamples.length * 5;
-  const nextFive = oneSample.slice(startIndex, startIndex + 5);
-
-  // Create a new five-sample candlestick
-  const newFiveSample = {
-    open: nextFive[0].open,
-    close: nextFive[4].close,
-    high: Math.max(...nextFive.map(c => c.high!)),
-    low: Math.min(...nextFive.map(c => c.low!))
-  };
+  const newFiveSample = createFiveSampleCandlestick(accumulator)
 
   return {
     ...accumulator,
@@ -226,5 +194,5 @@ export function processValue(accumulator: Accumulator, value: number): Accumulat
   updatedAccumulator = updateFiveSampleCandlesticks(updatedAccumulator);
   
   // Update all-time candlestick
-  return updateAllTimeCandlestick(updatedAccumulator, value);
+  return updateAllTimeCandlestick(updatedAccumulator);
 } 
