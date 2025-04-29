@@ -1,23 +1,6 @@
 import * as R from "ramda"
-/**
- * Represents a candlestick with open, close, high, and low values
- */
-export interface Candlestick {
-  open: number;
-  close: number;
-  high: number;
-  low: number;
-}
-
-/**
- * Represents an accumulator that holds candlesticks for different time windows
- */
-export interface Accumulator {
-  oneSample: Candlestick[];
-  twoSamples: Candlestick[];
-  fiveSamples: Candlestick[];
-  allTime: Candlestick;
-}
+import { Candlestick, Accumulator } from "./types.ts"
+import { getOpen, getClose, getHigh, getLow } from "./utils.ts"
 
 /**
  * Creates an empty candlestick
@@ -32,73 +15,31 @@ export function createEmptyCandlestick(): Candlestick {
 }
 
 /**
- * Creates an empty accumulator
- */
-export function createEmptyAccumulator(): Accumulator {
-  return {
-    oneSample: [],
-    twoSamples: [],
-    fiveSamples: [],
-    allTime: createEmptyCandlestick()
-  };
-}
-
-
-
-const getOpen = R.pipe<[Candlestick[]], Candlestick, number>(
-  R.head as (arr: Candlestick[]) => Candlestick,
-  R.prop('open') as (c: Candlestick) => number
-);
-
-const getClose = R.pipe<[Candlestick[]], Candlestick, number>(
-  R.last as (arr: Candlestick[]) => Candlestick,
-  R.prop('close') as (c: Candlestick) => number
-);
-
-const getHigh = (list: Candlestick[]) => {
-  if (list.length === 1) {
-    return list[0].high
-  }
-  return R.reduce<Candlestick, number>(
-    (acc, c) => R.isNil(acc) ? c.high : Math.max(acc, c.high),
-    R.head(list)?.high ?? Infinity
-  )(R.tail(list))
-}
-
-const getLow = (list: Candlestick[]) => {
-  return R.reduce<Candlestick, number>(
-    (acc, c) => R.isNil(acc) ? c.low : Math.min(acc, c.low),
-    R.head(list)?.low ?? Infinity
-  )(R.tail(list))
-}
-
-
-/**
  * Updates the one-sample candlesticks in the accumulator with a new value
  */
-export function updateOneSampleCandlesticks(accumulator: Accumulator, value: number): Accumulator {
-  
+export function updateOneSampleCandlesticks(accumulator: Accumulator | null, value: number): Accumulator {
   // Create a new accumulator with the updated one-sample candlesticks
   return {
     ...accumulator,
-    oneSample: [...accumulator.oneSample, {
+    oneSample: [...(accumulator?.oneSample as Candlestick[]), {
       open: value,
       close: value,
       high: value,
       low: value
     }]
-  };
+  } as Accumulator;
 }
 
-export const twoSampleSelector: (accumulator: Accumulator) => Candlestick[] = R.pipe<[Accumulator], Candlestick[], Candlestick[]>(
-  R.prop('oneSample'),
-  R.takeLast(2)
+const makeSelector = (granularity: string, lastCount: number) => R.pipe<[Accumulator], Candlestick[], Candlestick[]>(
+  (acc: Accumulator) => acc[granularity as keyof Accumulator] as Candlestick[],
+  R.takeLast(lastCount)
 )
 
-export const fiveSampleSelector: (accumulator: Accumulator) => Candlestick[] = R.pipe<[Accumulator], Candlestick[], Candlestick[]>(
-  R.prop('twoSamples'),
-  R.takeLast(3)
-)
+export const twoSampleSelector: (accumulator: Accumulator) => Candlestick[] = makeSelector('oneSample', 2)
+export const fiveSampleSelector: (accumulator: Accumulator) => Candlestick[] = makeSelector('twoSamples', 3)
+export const sixtySecondsSelector: (accumulator: Accumulator) => Candlestick[] = makeSelector('oneSample', 60)
+export const sixtyMinutesSelector: (accumulator: Accumulator) => Candlestick[] = makeSelector('sixtySeconds', 60)
+export const twentyFourHoursSelector: (accumulator: Accumulator) => Candlestick[] = makeSelector('sixtyMinutes', 24)
 
 const toCandlestick = R.applySpec<Candlestick>({
   open: getOpen,
@@ -134,17 +75,25 @@ interface Tier {
   selector: (accumulator: Accumulator) => Candlestick[];
 }
 
-export function processValue(accumulator: Accumulator, value: number): Accumulator {
-  const tiers: Tier[] = [
-    {granularity: "twoSamples", selector: twoSampleSelector},
-    {granularity: "fiveSamples", selector: fiveSampleSelector}
-  ]
+export const processValue = (tiers: Tier[]) => (accumulator: Accumulator | null, value: number): Accumulator => {
+
   // Update one-sample candlesticks
   let updatedAccumulator = updateOneSampleCandlesticks(accumulator, value);
   tiers.forEach(({granularity, selector}) => {
     updatedAccumulator = candlestickMaker(granularity as string, selector as (accumulator: Accumulator) => Candlestick[])(updatedAccumulator);
   });
-  
+
   // Update all-time candlestick
   return updateAllTimeCandlestick(getLargestGranularity(tiers))(updatedAccumulator);
 } 
+
+export const processValueTwoFive = processValue([
+  {granularity: "twoSamples", selector: twoSampleSelector},
+  {granularity: "fiveSamples", selector: fiveSampleSelector}
+])
+
+export const processValueMinHourDay = processValue([
+  {granularity: "sixtySeconds", selector: sixtySecondsSelector},
+  {granularity: "sixtyMinutes", selector: sixtyMinutesSelector},
+  {granularity: "twentyFourHours", selector: twentyFourHoursSelector}
+])

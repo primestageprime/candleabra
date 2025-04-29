@@ -1,8 +1,9 @@
 import * as R from "npm:ramda@0.30.1";
 import { assertEquals } from "jsr:@std/assert";
 import { 
-  createEmptyAccumulator, 
-  processValue
+  processValueTwoFive,
+  Accumulator,
+  Candlestick
 } from "./candlestick.ts";
 
 const values = [1,1,1,1,1, 1,1,9,9,1, 1,1,9,1,1, 1,1,1,1,1]
@@ -56,10 +57,10 @@ const verifyAllTime = (expected: any) => R.pipe(
 )
 
 Deno.test("should process first value correctly", async (t) => {
-  let accumulator = createEmptyAccumulator();
+  let accumulator = null
   
   await t.step("process first value", () => {
-    accumulator = processValue(accumulator, values[0]);
+    accumulator = processValueTwoFive(accumulator, values[0]);
   });
   
   await t.step("verify one-sample candlesticks", () => {
@@ -91,7 +92,7 @@ Deno.test("should process second value correctly", async (t) => {
   }
 
   await t.step("process second value", () => {
-    accumulator = processValue(accumulator, values[1]);
+    accumulator = processValueTwoFive(accumulator, values[1]);
   });
   
   await t.step("verify one-sample candlesticks", () => {
@@ -119,7 +120,7 @@ Deno.test("should process 7th value correctly", async (t) => {
   } 
 
   await t.step("process 7th value", () => {
-    accumulator = processValue(accumulator, values[7]);
+    accumulator = processValueTwoFive(accumulator, values[7]);
   });
   
   await t.step("verify one-sample candlesticks", () => {
@@ -151,7 +152,7 @@ Deno.test("should process 8th value correctly", async (t) => {
   } 
 
   await t.step("process 8th value", () => {
-    accumulator = processValue(accumulator, values[8]);
+    accumulator = processValueTwoFive(accumulator, values[8]);
   });
   
   await t.step("verify one-sample candlesticks", () => {
@@ -183,7 +184,7 @@ Deno.test("should process 9th value correctly", async (t) => {
   } 
 
   await t.step("process 9th value", () => {
-    accumulator = processValue(accumulator, values[9]);
+    accumulator = processValueTwoFive(accumulator, values[9]);
   });
 
   await t.step("verify one-sample candlesticks", () => {
@@ -215,7 +216,7 @@ Deno.test("should process 12th value correctly", async (t) => {
   }
 
   await t.step("process 12th value", () => {
-    accumulator = processValue(accumulator, values[12]);
+    accumulator = processValueTwoFive(accumulator, values[12]);
   });
 
   await t.step("verify one-sample candlesticks", () => {
@@ -247,7 +248,7 @@ Deno.test("should process 18th value correctly", async (t) => {
   }
 
   await t.step("process 18th value", () => {
-    accumulator = processValue(accumulator, values[18]);
+    accumulator = processValueTwoFive(accumulator, values[18]);
   });
 
   await t.step("verify one-sample candlesticks", () => {
