@@ -19,7 +19,6 @@ Deno.test('should process first value correctly', () => {
   // Process first value
   accumulator = processValue(accumulator, values[0]);
   
-  
   // Verify one-sample candlesticks
   assertEquals(accumulator.oneSample.length, 1);
   assertEquals(accumulator.oneSample[0], nominal);

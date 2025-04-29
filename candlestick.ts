@@ -125,7 +125,7 @@ export function updateTwoSampleCandlesticks(accumulator: Accumulator): Accumulat
  */
 export function updateAllTimeCandlestick(accumulator: Accumulator): Accumulator {
 
-  const allTime = [...accumulator.fiveSamples, ...accumulator.twoSamples, ...accumulator.oneSample]
+  const allTime = accumulator.fiveSamples
 
   const open = getOpen(allTime)
   const close = getClose(allTime)
@@ -152,8 +152,7 @@ export function updateAllTimeCandlestick(accumulator: Accumulator): Accumulator 
 export function createFiveSampleCandlestick(
   accumulator: Accumulator
 ): Candlestick {
-  const [firstTwoSample, secondTwoSample, thirdTwoSample] = R.takeLast(3, accumulator.twoSamples)
-  const samples = R.filter(R.isNotNil, [firstTwoSample, secondTwoSample, thirdTwoSample])
+  const samples = R.takeLast(3, accumulator.twoSamples)
   // First open from first two-sample, last close from last one-sample, max of all highs, min of all lows
   return {
     open: getOpen(samples),
