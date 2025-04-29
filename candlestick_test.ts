@@ -84,3 +84,58 @@ Deno.test('should process 7th value correctly', () => {
   // Verify all-time candlestick
   assertEquals(accumulator.allTime, critical_new);
 }); 
+
+Deno.test('should process 8th value correctly', () => {
+  let accumulator = {
+    oneSample: [nominal, critical],
+    twoSamples: [nominal, critical_new],
+    fiveSamples: [nominal, critical_new],
+    allTime: critical_new
+  } 
+
+  // Process first value
+  accumulator = processValue(accumulator, values[8]);
+  
+  // Verify one-sample candlesticks
+  assertEquals(accumulator.oneSample.length, 3);
+  assertEquals(accumulator.oneSample[2], critical);
+
+  // Verify two-sample candlesticks
+  assertEquals(accumulator.twoSamples.length, 3);
+  assertEquals(accumulator.twoSamples[2], critical);
+
+  // Verify five-sample candlesticks
+  assertEquals(accumulator.fiveSamples.length, 3);
+  assertEquals(accumulator.fiveSamples[2], critical_new);
+
+  // Verify all-time candlestick
+  assertEquals(accumulator.allTime, critical_new);
+  }); 
+
+Deno.test('should process 9th value correctly', () => {
+  let accumulator = {
+    oneSample: [nominal, critical, critical],
+    twoSamples: [nominal, nominal, critical],
+    fiveSamples: [nominal, critical_new, critical_new],
+    allTime: critical_new
+  } 
+
+  // Process first value
+  accumulator = processValue(accumulator, values[9]);
+
+  console.log(accumulator)
+  // Verify one-sample candlesticks
+  assertEquals(accumulator.oneSample.length, 4);
+  assertEquals(accumulator.oneSample[3], nominal);
+  
+  // Verify two-sample candlesticks
+  assertEquals(accumulator.twoSamples.length, 4);
+  assertEquals(accumulator.twoSamples[3], resolved);
+
+  // Verify five-sample candlesticks
+  assertEquals(accumulator.fiveSamples.length, 4);
+  assertEquals(accumulator.fiveSamples[3], spike);
+
+  // Verify all-time candlestick
+  assertEquals(accumulator.allTime, spike);
+}); 
