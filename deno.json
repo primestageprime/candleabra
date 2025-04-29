@@ -1,6 +1,6 @@
 {
   "name": "@primestage/candleabra",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "exports": "./candlestick.ts",
   "types": "./types.d.ts",
   "tasks": {
