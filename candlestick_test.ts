@@ -1,4 +1,4 @@
-import { assertStrictEquals } from "std/testing/asserts.ts";
+import { assertStrictEquals } from "https://deno.land/std@0.220.1/testing/asserts.ts";
 import { 
   createEmptyAccumulator, 
   processValue,
