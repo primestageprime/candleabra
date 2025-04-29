@@ -64,12 +64,12 @@ const candlestickMaker = (granularity: keyof Accumulator, selector: (accumulator
 /**
  * Updates the all-time candlestick with a new value
  */
-export const updateAllTimeCandlestick = (accumulator: Accumulator): Accumulator => ({
+export const updateAllTimeCandlestick = (largestGranularity: keyof Accumulator) => (accumulator: Accumulator): Accumulator => ({
   ...accumulator,
-  allTime: accumulator['allTime'] 
+  allTime: toCandlestick([accumulator.allTime, ...(Array.isArray(accumulator[largestGranularity]) ? accumulator[largestGranularity] : [])])
 })
 
-const getLargestGranularity = R.pipe<[Tier[]], Tier, string>(
+const getLargestGranularity = R.pipe<[Tier[]], Tier, keyof Accumulator>(
   R.last,
   R.prop('granularity')
 )
@@ -87,7 +87,7 @@ export const processValue = (tiers: Tier[]) => (accumulator: Accumulator | null,
   });
 
   // Update all-time candlestick
-  return updateAllTimeCandlestick(updatedAccumulator);
+  return updateAllTimeCandlestick(getLargestGranularity(tiers))(updatedAccumulator);
 } 
 
 export const processValueTwoFive = processValue([
