@@ -12,7 +12,12 @@ export interface Candlestick {
  * Represents an accumulator that holds candlesticks for different time windows
  */
 export interface Accumulator {
-  oneSample: Candlestick[];
-  allTime: Candlestick | null;
-  [key: string]: Candlestick[] | Candlestick | null;
+  oneSample: R.NonEmptyArray<Candlestick>;
+  allTime: Candlestick;
+  [key: string]: R.NonEmptyArray<Candlestick> | Candlestick;
+}
+
+export interface Tier {
+  granularity: string;
+  selector: (accumulator: Accumulator) => R.NonEmptyArray<Candlestick>;
 }

@@ -2,10 +2,8 @@ import * as R from "npm:ramda@0.30.1";
 import { assertEquals } from "jsr:@std/assert";
 import { 
   processValueTwoFive,
-  Accumulator,
-  Candlestick
 } from "./candlestick.ts";
-
+import type { Accumulator } from "./types.ts";
 const values = [1,1,1,1,1, 1,1,9,9,1, 1,1,9,1,1, 1,1,1,1,1]
 
 const nominal = {open: 1, close: 1, high: 1, low: 1}
@@ -57,34 +55,34 @@ const verifyAllTime = (expected: any) => R.pipe(
 )
 
 Deno.test("should process first value correctly", async (t) => {
-  let accumulator = null
+  let accumulator: Accumulator | null = null
   
   await t.step("process first value", () => {
     accumulator = processValueTwoFive(accumulator, values[0]);
   });
   
   await t.step("verify one-sample candlesticks", () => {
-    assertEquals(verifyLength(1)(accumulator.oneSample), true);
+    assertEquals(verifyLength(1)(accumulator!.oneSample), true);
     assertEquals(verifyLatestOneSample(nominal)(accumulator), true);
   });
   
   await t.step("verify two-sample candlesticks", () => {
-    assertEquals(verifyLength(1)(accumulator.twoSamples), true);
+    assertEquals(verifyLength(1)(accumulator!.twoSamples), true);
     assertEquals(verifyLatestTwoSample(nominal)(accumulator), true);
   });
 
   await t.step("verify five-sample candlesticks", () => {
-    assertEquals(verifyLength(1)(accumulator.fiveSamples), true);
+    assertEquals(verifyLength(1)(accumulator!.fiveSamples), true);
     assertEquals(verifyLatestFiveSample(nominal)(accumulator), true);
   });
 
   await t.step("verify all-time candlestick", () => {
-    assertEquals(verifyAllTime(nominal)(accumulator), true);
+    assertEquals(verifyAllTime(nominal)(accumulator!), true);
   });
 }); 
 
 Deno.test("should process second value correctly", async (t) => {
-  let accumulator = {
+  let accumulator: Accumulator = {
     oneSample: [nominal],
     twoSamples: [nominal],
     fiveSamples: [nominal],
@@ -101,8 +99,8 @@ Deno.test("should process second value correctly", async (t) => {
   });
 
   await t.step("verify two-sample candlesticks", () => {
-    assertEquals(verifyLength(2)(accumulator.twoSamples), true);
-    assertEquals(verifyLatestTwoSample(nominal)(accumulator), true);
+    assertEquals(verifyLength(2)(accumulator.twoSamples), true, `twoSamples: ${JSON.stringify(accumulator.twoSamples)}`);
+    assertEquals(verifyLatestTwoSample(nominal)(accumulator), true, `twoSamples: ${JSON.stringify(accumulator.twoSamples)}`);
   });
 
   await t.step("verify five-sample candlesticks", () => {
@@ -112,7 +110,7 @@ Deno.test("should process second value correctly", async (t) => {
 }); 
 
 Deno.test("should process 7th value correctly", async (t) => {
-  let accumulator = {
+  let accumulator: Accumulator = {
     oneSample: [nominal],
     twoSamples: [nominal],
     fiveSamples: [nominal],
@@ -144,7 +142,7 @@ Deno.test("should process 7th value correctly", async (t) => {
 }); 
 
 Deno.test("should process 8th value correctly", async (t) => {
-  let accumulator = {
+  let accumulator: Accumulator = {
     oneSample: [nominal, critical],
     twoSamples: [nominal, critical_new],
     fiveSamples: [nominal, critical_new],
@@ -176,7 +174,7 @@ Deno.test("should process 8th value correctly", async (t) => {
 }); 
 
 Deno.test("should process 9th value correctly", async (t) => {
-  let accumulator = {
+  let accumulator: Accumulator = {
     oneSample: [nominal, critical, critical],
     twoSamples: [nominal, nominal, critical],
     fiveSamples: [nominal, critical_new, critical_new],
@@ -208,7 +206,7 @@ Deno.test("should process 9th value correctly", async (t) => {
 }); 
 
 Deno.test("should process 12th value correctly", async (t) => {
-  let accumulator = {
+  let accumulator: Accumulator = {
     oneSample: [critical, nominal, nominal, nominal],
     twoSamples: [resolved, nominal],
     fiveSamples: [nominal,resolved],
@@ -240,7 +238,7 @@ Deno.test("should process 12th value correctly", async (t) => {
 });
 
 Deno.test("should process 18th value correctly", async (t) => {
-  let accumulator = {
+  let accumulator: Accumulator = {
     oneSample: [nominal, nominal, nominal, nominal],
     twoSamples: [nominal, nominal],
     fiveSamples: [spike, nominal],
