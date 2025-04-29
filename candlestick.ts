@@ -72,53 +72,49 @@ const getLow = (list: Candlestick[]) => {
   )(R.tail(list))
 }
 
-/**
- * Creates a one-sample candlestick from a single value
- */
-export function createOneSampleCandlestick(value: number): Candlestick {
-  return {
-    open: value,
-    close: value,
-    high: value,
-    low: value
-  };
-}
 
 /**
  * Updates the one-sample candlesticks in the accumulator with a new value
  */
 export function updateOneSampleCandlesticks(accumulator: Accumulator, value: number): Accumulator {
-  const newCandlestick = createOneSampleCandlestick(value);
   
   // Create a new accumulator with the updated one-sample candlesticks
   return {
     ...accumulator,
-    oneSample: [...accumulator.oneSample, newCandlestick]
+    oneSample: [...accumulator.oneSample, {
+      open: value,
+      close: value,
+      high: value,
+      low: value
+    }]
   };
 }
 
-
-
+export const twoSampleSelector = R.pipe<[Accumulator], Candlestick[], Candlestick[]>(
+  R.prop('oneSample'),
+  R.takeLast(2)
+)
+export const fiveSampleSelector = R.pipe<[Accumulator], Candlestick[], Candlestick[]>(
+  R.prop('twoSamples'),
+  R.takeLast(3)
+)
+const toCandlestick = R.applySpec<Candlestick>({
+  open: getOpen,
+  close: getClose, 
+  high: getHigh,
+  low: getLow
+})
 /**
  * Updates the two-sample candlesticks in the accumulator
  */
-export function updateTwoSampleCandlesticks(accumulator: Accumulator): Accumulator {
-  const { oneSample } = accumulator;  
-
-  // Get the last two one-sample candlesticks
-  const lastTwo = oneSample.slice(-2);
-  const open = getOpen(lastTwo)
-  const close = getClose(lastTwo)
-  const high = getHigh(lastTwo)
-  const low = getLow(lastTwo)
-
-  // Create a new two-sample candlestick
-  const newTwoSample = {open, close, high, low};
-  return {
+const candlestickMaker = (granularity: string, selector: (accumulator: Accumulator) => Candlestick[]) => (accumulator: Accumulator): Accumulator => ({
     ...accumulator,
-    twoSamples: [...accumulator.twoSamples, newTwoSample]
-  };
-}
+    [granularity]: [...(R.prop(granularity as keyof Accumulator, accumulator) as Candlestick[]), toCandlestick(selector(accumulator))]
+  });
+  
+export const updateTwoSampleCandlesticks = candlestickMaker('twoSamples', twoSampleSelector)
+export const updateFiveSampleCandlesticks = candlestickMaker('fiveSamples', fiveSampleSelector)
+
 
 /**
  * Updates the all-time candlestick with a new value
@@ -162,19 +158,6 @@ export function createFiveSampleCandlestick(
   };
 }
 
-/**
- * Updates the five-sample candlesticks in the accumulator
- */
-export function updateFiveSampleCandlesticks(accumulator: Accumulator): Accumulator {
-
-  // Get the five samples for the next candlestick
-  const newFiveSample = createFiveSampleCandlestick(accumulator)
-
-  return {
-    ...accumulator,
-    fiveSamples: [...accumulator.fiveSamples, newFiveSample]
-  };
-}
 
 /**
  * Processes a new value and updates the accumulator

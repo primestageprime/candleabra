@@ -2,7 +2,7 @@ import * as R from "npm:ramda@0.30.1";
 import { assertEquals } from "jsr:@std/assert";
 import { 
   createEmptyAccumulator, 
-  processValue,
+  processValue
 } from "./candlestick.ts";
 
 const values = [1,1,1,1,1, 1,1,9,9,1, 1,1,9,1,1, 1,1,1,1,1]
