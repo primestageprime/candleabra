@@ -1,3 +1,4 @@
+import * as R from "npm:ramda@0.30.1";
 import { assertEquals } from "jsr:@std/assert";
 import { 
   createEmptyAccumulator, 
@@ -13,6 +14,11 @@ const resolved = {open: 9, close: 1, high: 9, low: 1}
 const spike = {open: 1, close: 1, high: 9, low: 1}
 const temporary_resolution = {open: 9, close: 9, high: 9, low: 1}
 
+const getLatestOneSample = R.pipe(
+  R.prop('oneSample'),
+  R.last
+)
+
 Deno.test("should process first value correctly", async (t) => {
   let accumulator = createEmptyAccumulator();
   
@@ -22,7 +28,7 @@ Deno.test("should process first value correctly", async (t) => {
   
   await t.step("verify one-sample candlesticks", () => {
     assertEquals(accumulator.oneSample.length, 1);
-    assertEquals(accumulator.oneSample[0], nominal);
+    assertEquals(getLatestOneSample(accumulator), nominal);
   });
   
   await t.step("verify two-sample candlesticks", () => {
@@ -54,7 +60,7 @@ Deno.test("should process second value correctly", async (t) => {
   
   await t.step("verify one-sample candlesticks", () => {
     assertEquals(accumulator.oneSample.length, 2);
-    assertEquals(accumulator.oneSample[1], nominal);
+    assertEquals(getLatestOneSample(accumulator), nominal);
   });
 
   await t.step("verify two-sample candlesticks", () => {
@@ -82,7 +88,7 @@ Deno.test("should process 7th value correctly", async (t) => {
   
   await t.step("verify one-sample candlesticks", () => {
     assertEquals(accumulator.oneSample.length, 2);
-    assertEquals(accumulator.oneSample[1], critical);
+    assertEquals(getLatestOneSample(accumulator), critical);
   });
 
   await t.step("verify two-sample candlesticks", () => {
