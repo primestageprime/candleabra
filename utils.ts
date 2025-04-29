@@ -15,6 +15,7 @@ export const getHigh = (list: Candlestick[]) => {
   if (list.length === 1) {
     return list[0].high
   }
+  
   return R.reduce<Candlestick, number>(
     (acc, c) => R.isNil(acc) ? c.high : Math.max(acc, c.high),
     R.head(list)!.high

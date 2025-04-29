@@ -29,7 +29,7 @@ export function updateOneSampleCandlesticks(accumulator: Accumulator | null, val
 const makeSelector = (granularity: keyof Accumulator, lastCount: number) => 
   (acc: Accumulator): R.NonEmptyArray<Candlestick> => {
     const samples = acc[granularity];
-    if (!samples || !Array.isArray(samples)) {
+    if (!samples || !Array.isArray(samples) || granularity === 'allTime') {
       return [acc.allTime];
     }
     return R.takeLast(lastCount, samples) as R.NonEmptyArray<Candlestick>;
@@ -54,7 +54,7 @@ const candlestickMaker = (granularity: keyof Accumulator, selector: (accumulator
   const selectedCandlesticks = selector(accumulator);
   const newCandlestick = toCandlestick(selectedCandlesticks);
   const item: R.NonEmptyArray<Candlestick> | Candlestick = accumulator[granularity] 
-  const result: R.NonEmptyArray<Candlestick> | Candlestick = Array.isArray(item) ? [...item, newCandlestick] : newCandlestick
+  const result: R.NonEmptyArray<Candlestick> | Candlestick = Array.isArray(item) ? [...item, newCandlestick] : [newCandlestick]
   return {
     ...accumulator,
     [granularity]: result
@@ -64,9 +64,9 @@ const candlestickMaker = (granularity: keyof Accumulator, selector: (accumulator
 /**
  * Updates the all-time candlestick with a new value
  */
-export const updateAllTimeCandlestick = (granularity: keyof Accumulator) => (accumulator: Accumulator): Accumulator => ({
+export const updateAllTimeCandlestick = (accumulator: Accumulator): Accumulator => ({
   ...accumulator,
-  allTime: toCandlestick(accumulator[granularity])
+  allTime: accumulator['allTime'] 
 })
 
 const getLargestGranularity = R.pipe<[Tier[]], Tier, string>(
@@ -87,7 +87,7 @@ export const processValue = (tiers: Tier[]) => (accumulator: Accumulator | null,
   });
 
   // Update all-time candlestick
-  return updateAllTimeCandlestick(getLargestGranularity(tiers))(updatedAccumulator);
+  return updateAllTimeCandlestick(updatedAccumulator);
 } 
 
 export const processValueTwoFive = processValue([
