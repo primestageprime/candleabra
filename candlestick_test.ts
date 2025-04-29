@@ -1,4 +1,4 @@
-import { assert } from "std/testing/asserts.ts";
+import { assertStrictEquals } from "std/testing/asserts.ts";
 import { 
   createEmptyAccumulator, 
   processValue,
@@ -20,17 +20,17 @@ Deno.test('should process first value correctly', () => {
   accumulator = processValue(accumulator, values[0]);
   
   // Verify one-sample candlesticks
-  assert(accumulator.oneSample.length === 1);
-  assert(JSON.stringify(accumulator.oneSample[0]) === JSON.stringify(nominal));
+  assertStrictEquals(accumulator.oneSample.length, 1);
+  assertStrictEquals(JSON.stringify(accumulator.oneSample[0]), JSON.stringify(nominal));
   
   // Verify two-sample candlesticks (should be empty)
-  assert(accumulator.twoSamples.length === 1);
-  assert(JSON.stringify(accumulator.twoSamples[0]) === JSON.stringify(nominal));
+  assertStrictEquals(accumulator.twoSamples.length, 1);
+  assertStrictEquals(JSON.stringify(accumulator.twoSamples[0]), JSON.stringify(nominal));
   // Verify five-sample candlesticks (should be empty)
-  assert(accumulator.fiveSamples.length === 1);
-  assert(JSON.stringify(accumulator.fiveSamples[0]) === JSON.stringify(nominal));
+  assertStrictEquals(accumulator.fiveSamples.length, 1);
+  assertStrictEquals(JSON.stringify(accumulator.fiveSamples[0]), JSON.stringify(nominal));
   // Verify all-time candlestick
-  assert(JSON.stringify(accumulator.allTime) === JSON.stringify(nominal));
+  assertStrictEquals(JSON.stringify(accumulator.allTime), JSON.stringify(nominal));
 }); 
 
 Deno.test('should process second value correctly', () => {
@@ -45,16 +45,16 @@ Deno.test('should process second value correctly', () => {
   accumulator = processValue(accumulator, values[1]);
   
   // Verify one-sample candlesticks
-  assert(accumulator.oneSample.length === 2);
-  assert(JSON.stringify(accumulator.oneSample[1]) === JSON.stringify(nominal));
+  assertStrictEquals(accumulator.oneSample.length, 2);
+  assertStrictEquals(JSON.stringify(accumulator.oneSample[1]), JSON.stringify(nominal));
 
   // Verify two-sample candlesticks
-  assert(accumulator.twoSamples.length === 2);
-  assert(JSON.stringify(accumulator.twoSamples[1]) === JSON.stringify(nominal));
+  assertStrictEquals(accumulator.twoSamples.length, 2);
+  assertStrictEquals(JSON.stringify(accumulator.twoSamples[1]), JSON.stringify(nominal));
 
   // Verify five-sample candlesticks
-  assert(accumulator.fiveSamples.length === 2);
-  assert(JSON.stringify(accumulator.fiveSamples[1]) === JSON.stringify(nominal));
+  assertStrictEquals(accumulator.fiveSamples.length, 2);
+  assertStrictEquals(JSON.stringify(accumulator.fiveSamples[1]), JSON.stringify(nominal));
 }); 
 
 Deno.test('should process 7th value correctly', () => {
@@ -69,19 +69,19 @@ Deno.test('should process 7th value correctly', () => {
   accumulator = processValue(accumulator, values[7]);
   
   // Verify one-sample candlesticks
-  assert(accumulator.oneSample.length === 2);
-  assert(JSON.stringify(accumulator.oneSample[1]) === JSON.stringify(critical));
+  assertStrictEquals(accumulator.oneSample.length, 2);
+  assertStrictEquals(JSON.stringify(accumulator.oneSample[1]), JSON.stringify(critical));
 
   // Verify two-sample candlesticks
-  assert(accumulator.twoSamples.length === 2);
-  assert(JSON.stringify(accumulator.twoSamples[1]) === JSON.stringify(critical_new));
+  assertStrictEquals(accumulator.twoSamples.length, 2);
+  assertStrictEquals(JSON.stringify(accumulator.twoSamples[1]), JSON.stringify(critical_new));
 
   // Verify five-sample candlesticks
-  assert(accumulator.fiveSamples.length === 2);
-  assert(JSON.stringify(accumulator.fiveSamples[1]) === JSON.stringify(critical_new));
+  assertStrictEquals(accumulator.fiveSamples.length, 2);
+  assertStrictEquals(JSON.stringify(accumulator.fiveSamples[1]), JSON.stringify(critical_new));
   
   // Verify all-time candlestick
-  assert(JSON.stringify(accumulator.allTime) === JSON.stringify(critical_new));
+  assertStrictEquals(JSON.stringify(accumulator.allTime), JSON.stringify(critical_new));
 }); 
 
 Deno.test('should process 8th value correctly', () => {
@@ -96,19 +96,19 @@ Deno.test('should process 8th value correctly', () => {
   accumulator = processValue(accumulator, values[8]);
   
   // Verify one-sample candlesticks
-  assert(accumulator.oneSample.length === 3);
-  assert(JSON.stringify(accumulator.oneSample[2]) === JSON.stringify(critical));
+  assertStrictEquals(accumulator.oneSample.length, 3);
+  assertStrictEquals(JSON.stringify(accumulator.oneSample[2]), JSON.stringify(critical));
 
   // Verify two-sample candlesticks
-  assert(accumulator.twoSamples.length === 3);
-  assert(JSON.stringify(accumulator.twoSamples[2]) === JSON.stringify(critical));
+  assertStrictEquals(accumulator.twoSamples.length, 3);
+  assertStrictEquals(JSON.stringify(accumulator.twoSamples[2]), JSON.stringify(critical));
 
   // Verify five-sample candlesticks
-  assert(accumulator.fiveSamples.length === 3);
-  assert(JSON.stringify(accumulator.fiveSamples[2]) === JSON.stringify(critical_new));
+  assertStrictEquals(accumulator.fiveSamples.length, 3);
+  assertStrictEquals(JSON.stringify(accumulator.fiveSamples[2]), JSON.stringify(critical_new));
 
   // Verify all-time candlestick
-  assert(JSON.stringify(accumulator.allTime) === JSON.stringify(critical_new));
+  assertStrictEquals(JSON.stringify(accumulator.allTime), JSON.stringify(critical_new));
   }); 
 
 Deno.test('should process 9th value correctly', () => {
@@ -123,19 +123,19 @@ Deno.test('should process 9th value correctly', () => {
   accumulator = processValue(accumulator, values[9]);
 
   // Verify one-sample candlesticks
-  assert(accumulator.oneSample.length === 4);
-  assert(JSON.stringify(accumulator.oneSample[3]) === JSON.stringify(nominal));
+  assertStrictEquals(accumulator.oneSample.length, 4);
+  assertStrictEquals(JSON.stringify(accumulator.oneSample[3]), JSON.stringify(nominal));
   
   // Verify two-sample candlesticks
-  assert(accumulator.twoSamples.length === 4);
-  assert(JSON.stringify(accumulator.twoSamples[3]) === JSON.stringify(resolved));
+  assertStrictEquals(accumulator.twoSamples.length, 4);
+  assertStrictEquals(JSON.stringify(accumulator.twoSamples[3]), JSON.stringify(resolved));
 
   // Verify five-sample candlesticks
-  assert(accumulator.fiveSamples.length === 4);
-  assert(JSON.stringify(accumulator.fiveSamples[3]) === JSON.stringify(spike));
+  assertStrictEquals(accumulator.fiveSamples.length, 4);
+  assertStrictEquals(JSON.stringify(accumulator.fiveSamples[3]), JSON.stringify(spike));
 
   // Verify all-time candlestick
-  assert(JSON.stringify(accumulator.allTime) === JSON.stringify(spike));
+  assertStrictEquals(JSON.stringify(accumulator.allTime), JSON.stringify(spike));
 }); 
 // [1,1,1,1,1, 1,1,9,9,1, 1,1,9,1,1, 1,1,1,1,1]
 Deno.test('should process 12th value correctly', () => {
@@ -151,19 +151,19 @@ Deno.test('should process 12th value correctly', () => {
 
   console.log(accumulator)
   // Verify one-sample candlesticks
-  assert(accumulator.oneSample.length === 5);
-  assert(JSON.stringify(accumulator.oneSample[4]) === JSON.stringify(critical));
+  assertStrictEquals(accumulator.oneSample.length, 5);
+  assertStrictEquals(JSON.stringify(accumulator.oneSample[4]), JSON.stringify(critical));
 
   // Verify two-sample candlesticks
-  assert(accumulator.twoSamples.length === 3);
-  assert(JSON.stringify(accumulator.twoSamples[2]) === JSON.stringify(critical_new));
+  assertStrictEquals(accumulator.twoSamples.length, 3);
+  assertStrictEquals(JSON.stringify(accumulator.twoSamples[2]), JSON.stringify(critical_new));
 
   // Verify five-sample candlesticks
-  assert(accumulator.fiveSamples.length === 3);
-  assert(JSON.stringify(accumulator.fiveSamples[2]) === JSON.stringify(temporary_resolution));
+  assertStrictEquals(accumulator.fiveSamples.length, 3);
+  assertStrictEquals(JSON.stringify(accumulator.fiveSamples[2]), JSON.stringify(temporary_resolution));
   
   // Verify all-time candlestick
-  assert(JSON.stringify(accumulator.allTime) === JSON.stringify(critical_new));
+  assertStrictEquals(JSON.stringify(accumulator.allTime), JSON.stringify(critical_new));
 });
 
 Deno.test('should process 18th value correctly', () => {
@@ -180,17 +180,17 @@ Deno.test('should process 18th value correctly', () => {
   console.log(accumulator)
 
   // Verify one-sample candlesticks
-  assert(accumulator.oneSample.length === 5);
-  assert(JSON.stringify(accumulator.oneSample[4]) === JSON.stringify(nominal));
+  assertStrictEquals(accumulator.oneSample.length, 5);
+  assertStrictEquals(JSON.stringify(accumulator.oneSample[4]), JSON.stringify(nominal));
   
   // Verify two-sample candlesticks
-  assert(accumulator.twoSamples.length === 3);
-  assert(JSON.stringify(accumulator.twoSamples[2]) === JSON.stringify(nominal));
+  assertStrictEquals(accumulator.twoSamples.length, 3);
+  assertStrictEquals(JSON.stringify(accumulator.twoSamples[2]), JSON.stringify(nominal));
 
   // Verify five-sample candlesticks
-  assert(accumulator.fiveSamples.length === 3);
-  assert(JSON.stringify(accumulator.fiveSamples[2]) === JSON.stringify(nominal));
+  assertStrictEquals(accumulator.fiveSamples.length, 3);
+  assertStrictEquals(JSON.stringify(accumulator.fiveSamples[2]), JSON.stringify(nominal));
 
   // Verify all-time candlestick
-  assert(JSON.stringify(accumulator.allTime) === JSON.stringify(spike));
+  assertStrictEquals(JSON.stringify(accumulator.allTime), JSON.stringify(spike));
 });
