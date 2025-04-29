@@ -43,40 +43,6 @@ export function createEmptyAccumulator(): Accumulator {
 }
 
 /**
- * Visualizes a candlestick in the specified format
- */
-export function visualizeCandlestick(candlestick: Candlestick): string {
-  if (candlestick.open === null || candlestick.close === null || 
-      candlestick.high === null || candlestick.low === null) {
-    return "Empty candlestick";
-  }
-  
-  return `
-      [ ${candlestick.high} ]
-[${candlestick.open}]        [${candlestick.close}]
-      [ ${candlestick.low} ]`;
-}
-
-/**
- * Visualizes an accumulator
- */
-export function visualizeAccumulator(accumulator: Accumulator): string {
-  return `
-One Sample Candlesticks:
-${accumulator.oneSample.map(visualizeCandlestick).join('\n')}
-
-Two Sample Candlesticks:
-${accumulator.twoSamples.map(visualizeCandlestick).join('\n')}
-
-Five Sample Candlesticks:
-${accumulator.fiveSamples.map(visualizeCandlestick).join('\n')}
-
-All Time Candlestick:
-${visualizeCandlestick(accumulator.allTime)}
-`;
-}
-
-/**
  * Creates a one-sample candlestick from a single value
  */
 export function createOneSampleCandlestick(value: number): Candlestick {
