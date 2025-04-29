@@ -166,3 +166,32 @@ Deno.test('should process 12th value correctly', () => {
   // Verify all-time candlestick
   assertEquals(accumulator.allTime, critical_new);
 });
+
+Deno.test('should process 18th value correctly', () => {
+  let accumulator = {
+    oneSample: [nominal, nominal, nominal, nominal],
+    twoSamples: [nominal, nominal],
+    fiveSamples: [spike, nominal],
+    allTime: spike
+  }
+
+  // Process first value
+  accumulator = processValue(accumulator, values[18]);
+
+  console.log(accumulator)
+
+  // Verify one-sample candlesticks
+  assertEquals(accumulator.oneSample.length, 5);
+  assertEquals(accumulator.oneSample[4], nominal);
+  
+  // Verify two-sample candlesticks
+  assertEquals(accumulator.twoSamples.length, 3);
+  assertEquals(accumulator.twoSamples[2], nominal);
+
+  // Verify five-sample candlesticks
+  assertEquals(accumulator.fiveSamples.length, 3);
+  assertEquals(accumulator.fiveSamples[2], nominal);
+
+  // Verify all-time candlestick
+  assertEquals(accumulator.allTime, spike);
+});
