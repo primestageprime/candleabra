@@ -14,9 +14,45 @@ const resolved = {open: 9, close: 1, high: 9, low: 1}
 const spike = {open: 1, close: 1, high: 9, low: 1}
 const temporary_resolution = {open: 9, close: 9, high: 9, low: 1}
 
+// Helper functions
 const getLatestOneSample = R.pipe(
   R.prop('oneSample'),
   R.last
+)
+
+const getLatestTwoSample = R.pipe(
+  R.prop('twoSamples'),
+  R.last
+)
+
+const getLatestFiveSample = R.pipe(
+  R.prop('fiveSamples'),
+  R.last
+)
+
+const verifyLength = (length: number) => R.pipe(
+  R.prop('length'),
+  R.equals(length)
+)
+
+const verifyLatestOneSample = (expected: any) => R.pipe(
+  getLatestOneSample,
+  R.equals(expected)
+)
+
+const verifyLatestTwoSample = (expected: any) => R.pipe(
+  getLatestTwoSample,
+  R.equals(expected)
+)
+
+const verifyLatestFiveSample = (expected: any) => R.pipe(
+  getLatestFiveSample,
+  R.equals(expected)
+)
+
+const verifyAllTime = (expected: any) => R.pipe(
+  R.prop('allTime'),
+  R.equals(expected)
 )
 
 Deno.test("should process first value correctly", async (t) => {
@@ -27,22 +63,22 @@ Deno.test("should process first value correctly", async (t) => {
   });
   
   await t.step("verify one-sample candlesticks", () => {
-    assertEquals(accumulator.oneSample.length, 1);
-    assertEquals(getLatestOneSample(accumulator), nominal);
+    assertEquals(verifyLength(1)(accumulator.oneSample), true);
+    assertEquals(verifyLatestOneSample(nominal)(accumulator), true);
   });
   
   await t.step("verify two-sample candlesticks", () => {
-    assertEquals(accumulator.twoSamples.length, 1);
-    assertEquals(accumulator.twoSamples[0], nominal);
+    assertEquals(verifyLength(1)(accumulator.twoSamples), true);
+    assertEquals(verifyLatestTwoSample(nominal)(accumulator), true);
   });
 
   await t.step("verify five-sample candlesticks", () => {
-    assertEquals(accumulator.fiveSamples.length, 1);
-    assertEquals(accumulator.fiveSamples[0], nominal);
+    assertEquals(verifyLength(1)(accumulator.fiveSamples), true);
+    assertEquals(verifyLatestFiveSample(nominal)(accumulator), true);
   });
 
   await t.step("verify all-time candlestick", () => {
-    assertEquals(accumulator.allTime, nominal);
+    assertEquals(verifyAllTime(nominal)(accumulator), true);
   });
 }); 
 
@@ -59,18 +95,18 @@ Deno.test("should process second value correctly", async (t) => {
   });
   
   await t.step("verify one-sample candlesticks", () => {
-    assertEquals(accumulator.oneSample.length, 2);
-    assertEquals(getLatestOneSample(accumulator), nominal);
+    assertEquals(verifyLength(2)(accumulator.oneSample), true);
+    assertEquals(verifyLatestOneSample(nominal)(accumulator), true);
   });
 
   await t.step("verify two-sample candlesticks", () => {
-    assertEquals(accumulator.twoSamples.length, 2);
-    assertEquals(accumulator.twoSamples[1], nominal);
+    assertEquals(verifyLength(2)(accumulator.twoSamples), true);
+    assertEquals(verifyLatestTwoSample(nominal)(accumulator), true);
   });
 
   await t.step("verify five-sample candlesticks", () => {
-    assertEquals(accumulator.fiveSamples.length, 2);
-    assertEquals(accumulator.fiveSamples[1], nominal);
+    assertEquals(verifyLength(2)(accumulator.fiveSamples), true);
+    assertEquals(verifyLatestFiveSample(nominal)(accumulator), true);
   });
 }); 
 
@@ -87,22 +123,22 @@ Deno.test("should process 7th value correctly", async (t) => {
   });
   
   await t.step("verify one-sample candlesticks", () => {
-    assertEquals(accumulator.oneSample.length, 2);
-    assertEquals(getLatestOneSample(accumulator), critical);
+    assertEquals(verifyLength(2)(accumulator.oneSample), true);
+    assertEquals(verifyLatestOneSample(critical)(accumulator), true);
   });
 
   await t.step("verify two-sample candlesticks", () => {
-    assertEquals(accumulator.twoSamples.length, 2);
-    assertEquals(accumulator.twoSamples[1], critical_new);
+    assertEquals(verifyLength(2)(accumulator.twoSamples), true);
+    assertEquals(verifyLatestTwoSample(critical_new)(accumulator), true);
   });
 
   await t.step("verify five-sample candlesticks", () => {
-    assertEquals(accumulator.fiveSamples.length, 2);
-    assertEquals(accumulator.fiveSamples[1], critical_new);
+    assertEquals(verifyLength(2)(accumulator.fiveSamples), true);
+    assertEquals(verifyLatestFiveSample(critical_new)(accumulator), true);
   });
   
   await t.step("verify all-time candlestick", () => {
-    assertEquals(accumulator.allTime, critical_new);
+    assertEquals(verifyAllTime(critical_new)(accumulator), true);
   });
 }); 
 
@@ -119,22 +155,22 @@ Deno.test("should process 8th value correctly", async (t) => {
   });
   
   await t.step("verify one-sample candlesticks", () => {
-    assertEquals(accumulator.oneSample.length, 3);
-    assertEquals(accumulator.oneSample[2], critical);
+    assertEquals(verifyLength(3)(accumulator.oneSample), true);
+    assertEquals(verifyLatestOneSample(critical)(accumulator), true);
   });
 
   await t.step("verify two-sample candlesticks", () => {
-    assertEquals(accumulator.twoSamples.length, 3);
-    assertEquals(accumulator.twoSamples[2], critical);
+    assertEquals(verifyLength(3)(accumulator.twoSamples), true);
+    assertEquals(verifyLatestTwoSample(critical)(accumulator), true);
   });
 
   await t.step("verify five-sample candlesticks", () => {
-    assertEquals(accumulator.fiveSamples.length, 3);
-    assertEquals(accumulator.fiveSamples[2], critical_new);
+    assertEquals(verifyLength(3)(accumulator.fiveSamples), true);
+    assertEquals(verifyLatestFiveSample(critical_new)(accumulator), true);
   });
 
   await t.step("verify all-time candlestick", () => {
-    assertEquals(accumulator.allTime, critical_new);
+    assertEquals(verifyAllTime(critical_new)(accumulator), true);
   });
 }); 
 
@@ -151,22 +187,22 @@ Deno.test("should process 9th value correctly", async (t) => {
   });
 
   await t.step("verify one-sample candlesticks", () => {
-    assertEquals(accumulator.oneSample.length, 4);
-    assertEquals(accumulator.oneSample[3], nominal);
+    assertEquals(verifyLength(4)(accumulator.oneSample), true);
+    assertEquals(verifyLatestOneSample(nominal)(accumulator), true);
   });
   
   await t.step("verify two-sample candlesticks", () => {
-    assertEquals(accumulator.twoSamples.length, 4);
-    assertEquals(accumulator.twoSamples[3], resolved);
+    assertEquals(verifyLength(4)(accumulator.twoSamples), true);
+    assertEquals(verifyLatestTwoSample(resolved)(accumulator), true);
   });
 
   await t.step("verify five-sample candlesticks", () => {
-    assertEquals(accumulator.fiveSamples.length, 4);
-    assertEquals(accumulator.fiveSamples[3], spike);
+    assertEquals(verifyLength(4)(accumulator.fiveSamples), true);
+    assertEquals(verifyLatestFiveSample(spike)(accumulator), true);
   });
 
   await t.step("verify all-time candlestick", () => {
-    assertEquals(accumulator.allTime, spike);
+    assertEquals(verifyAllTime(spike)(accumulator), true);
   });
 }); 
 
@@ -183,22 +219,22 @@ Deno.test("should process 12th value correctly", async (t) => {
   });
 
   await t.step("verify one-sample candlesticks", () => {
-    assertEquals(accumulator.oneSample.length, 5);
-    assertEquals(accumulator.oneSample[4], critical);
+    assertEquals(verifyLength(5)(accumulator.oneSample), true);
+    assertEquals(verifyLatestOneSample(critical)(accumulator), true);
   });
 
   await t.step("verify two-sample candlesticks", () => {
-    assertEquals(accumulator.twoSamples.length, 3);
-    assertEquals(accumulator.twoSamples[2], critical_new);
+    assertEquals(verifyLength(3)(accumulator.twoSamples), true);
+    assertEquals(verifyLatestTwoSample(critical_new)(accumulator), true);
   });
 
   await t.step("verify five-sample candlesticks", () => {
-    assertEquals(accumulator.fiveSamples.length, 3);
-    assertEquals(accumulator.fiveSamples[2], temporary_resolution);
+    assertEquals(verifyLength(3)(accumulator.fiveSamples), true);
+    assertEquals(verifyLatestFiveSample(temporary_resolution)(accumulator), true);
   });
   
   await t.step("verify all-time candlestick", () => {
-    assertEquals(accumulator.allTime, critical_new);
+    assertEquals(verifyAllTime(critical_new)(accumulator), true);
   });
 });
 
@@ -215,21 +251,21 @@ Deno.test("should process 18th value correctly", async (t) => {
   });
 
   await t.step("verify one-sample candlesticks", () => {
-    assertEquals(accumulator.oneSample.length, 5);
-    assertEquals(accumulator.oneSample[4], nominal);
+    assertEquals(verifyLength(5)(accumulator.oneSample), true);
+    assertEquals(verifyLatestOneSample(nominal)(accumulator), true);
   });
   
   await t.step("verify two-sample candlesticks", () => {
-    assertEquals(accumulator.twoSamples.length, 3);
-    assertEquals(accumulator.twoSamples[2], nominal);
+    assertEquals(verifyLength(3)(accumulator.twoSamples), true);
+    assertEquals(verifyLatestTwoSample(nominal)(accumulator), true);
   });
 
   await t.step("verify five-sample candlesticks", () => {
-    assertEquals(accumulator.fiveSamples.length, 3);
-    assertEquals(accumulator.fiveSamples[2], nominal);
+    assertEquals(verifyLength(3)(accumulator.fiveSamples), true);
+    assertEquals(verifyLatestFiveSample(nominal)(accumulator), true);
   });
 
   await t.step("verify all-time candlestick", () => {
-    assertEquals(accumulator.allTime, spike);
+    assertEquals(verifyAllTime(spike)(accumulator), true);
   });
 });
