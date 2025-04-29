@@ -125,7 +125,7 @@ export function updateTwoSampleCandlesticks(accumulator: Accumulator): Accumulat
  */
 export function updateAllTimeCandlestick(accumulator: Accumulator): Accumulator {
 
-  const allTime = [...accumulator.oneSample, ...accumulator.twoSamples, ...accumulator.fiveSamples]
+  const allTime = [...accumulator.fiveSamples, ...accumulator.twoSamples, ...accumulator.oneSample]
 
   const open = getOpen(allTime)
   const close = getClose(allTime)
