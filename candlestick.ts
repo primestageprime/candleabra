@@ -112,52 +112,13 @@ const candlestickMaker = (granularity: string, selector: (accumulator: Accumulat
     [granularity]: [...(R.prop(granularity as keyof Accumulator, accumulator) as Candlestick[]), toCandlestick(selector(accumulator))]
   });
   
-export const updateTwoSampleCandlesticks = candlestickMaker('twoSamples', twoSampleSelector)
-export const updateFiveSampleCandlesticks = candlestickMaker('fiveSamples', fiveSampleSelector)
-
-
 /**
  * Updates the all-time candlestick with a new value
  */
-export function updateAllTimeCandlestick(accumulator: Accumulator): Accumulator {
-
-  const allTime = accumulator.fiveSamples
-
-  const open = getOpen(allTime)
-  const close = getClose(allTime)
-  const high = getHigh(allTime)
-  const low = getLow(allTime)
-  
-  // Update the all-time candlestick with the new value
-  const updatedAllTime: Candlestick = {
-    open,
-    close,
-    high,
-    low
-  };
-  
-  return {
-    ...accumulator,
-    allTime: updatedAllTime
-  };
-}
-
-/**
- * Creates a five-sample candlestick from two two-sample candlesticks and one one-sample candlestick
- */
-export function createFiveSampleCandlestick(
-  accumulator: Accumulator
-): Candlestick {
-  const samples = R.takeLast(3, accumulator.twoSamples)
-  // First open from first two-sample, last close from last one-sample, max of all highs, min of all lows
-  return {
-    open: getOpen(samples),
-    close: getClose(samples),
-    high: getHigh(samples),
-    low: getLow(samples)
-  };
-}
-
+export const updateAllTimeCandlestick = (granularity: string) => (accumulator: Accumulator): Accumulator => ({
+  ...accumulator,
+  allTime: toCandlestick(accumulator[granularity as keyof Accumulator] as Candlestick[])
+})
 
 /**
  * Processes a new value and updates the accumulator
@@ -167,11 +128,11 @@ export function processValue(accumulator: Accumulator, value: number): Accumulat
   let updatedAccumulator = updateOneSampleCandlesticks(accumulator, value);
   
   // Update two-sample candlesticks
-  updatedAccumulator = updateTwoSampleCandlesticks(updatedAccumulator);
+  updatedAccumulator = candlestickMaker('twoSamples', twoSampleSelector)(updatedAccumulator);
   
   // Update five-sample candlesticks
-  updatedAccumulator = updateFiveSampleCandlesticks(updatedAccumulator);
+  updatedAccumulator = candlestickMaker('fiveSamples', fiveSampleSelector)(updatedAccumulator);
   
   // Update all-time candlestick
-  return updateAllTimeCandlestick(updatedAccumulator);
+    return updateAllTimeCandlestick('fiveSamples')(updatedAccumulator);
 } 
