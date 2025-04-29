@@ -271,7 +271,7 @@ Deno.test("processValue - accumulator state after each iteration", () => {
     const value = values[i];
     accumulator = processValue(accumulator, value);
     
-    console.log(`At position ${i} in the values list`);
+    console.log(`At position ${i} in the values list (format: [O,C,H,L])`);
     console.log(`one_sample: ${formatCandlesticks(accumulator.oneSample)}`);
     console.log(`two_samples: ${formatCandlesticks(accumulator.twoSamples)}`);
     console.log(`five_samples: ${formatCandlesticks(accumulator.fiveSamples)}`);
@@ -292,7 +292,7 @@ Deno.test("processValue - accumulator state after each iteration", () => {
     position7Accumulator = processValue(position7Accumulator, values[i]);
   }
   
-  console.log("At position 7 in the values list");
+  console.log("At position 7 in the values list (format: [O,C,H,L])");
   console.log(`one_sample: ${formatCandlesticks(position7Accumulator.oneSample)}`);
   console.log(`two_samples: ${formatCandlesticks(position7Accumulator.twoSamples)}`);
   console.log(`five_samples: ${formatCandlesticks(position7Accumulator.fiveSamples)}`);
@@ -304,7 +304,7 @@ Deno.test("processValue - accumulator state after each iteration", () => {
     position12Accumulator = processValue(position12Accumulator, values[i]);
   }
   
-  console.log("At position 12 in the values list");
+  console.log("At position 12 in the values list (format: [O,C,H,L])");
   console.log(`one_sample: ${formatCandlesticks(position12Accumulator.oneSample)}`);
   console.log(`two_samples: ${formatCandlesticks(position12Accumulator.twoSamples)}`);
   console.log(`five_samples: ${formatCandlesticks(position12Accumulator.fiveSamples)}`);
