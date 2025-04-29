@@ -90,14 +90,16 @@ export function updateOneSampleCandlesticks(accumulator: Accumulator, value: num
   };
 }
 
-export const twoSampleSelector = R.pipe<[Accumulator], Candlestick[], Candlestick[]>(
+export const twoSampleSelector: (accumulator: Accumulator) => Candlestick[] = R.pipe<[Accumulator], Candlestick[], Candlestick[]>(
   R.prop('oneSample'),
   R.takeLast(2)
 )
-export const fiveSampleSelector = R.pipe<[Accumulator], Candlestick[], Candlestick[]>(
+
+export const fiveSampleSelector: (accumulator: Accumulator) => Candlestick[] = R.pipe<[Accumulator], Candlestick[], Candlestick[]>(
   R.prop('twoSamples'),
   R.takeLast(3)
 )
+
 const toCandlestick = R.applySpec<Candlestick>({
   open: getOpen,
   close: getClose, 
@@ -120,19 +122,29 @@ export const updateAllTimeCandlestick = (granularity: string) => (accumulator: A
   allTime: toCandlestick(accumulator[granularity as keyof Accumulator] as Candlestick[])
 })
 
+const getLargestGranularity = R.pipe<[Tier[]], Tier, string>(
+  R.last as (arr: Tier[]) => Tier,
+  R.prop('granularity') as (t: Tier) => string
+)
 /**
  * Processes a new value and updates the accumulator
  */
+interface Tier {
+  granularity: string;
+  selector: (accumulator: Accumulator) => Candlestick[];
+}
+
 export function processValue(accumulator: Accumulator, value: number): Accumulator {
+  const tiers: Tier[] = [
+    {granularity: "twoSamples", selector: twoSampleSelector},
+    {granularity: "fiveSamples", selector: fiveSampleSelector}
+  ]
   // Update one-sample candlesticks
   let updatedAccumulator = updateOneSampleCandlesticks(accumulator, value);
-  
-  // Update two-sample candlesticks
-  updatedAccumulator = candlestickMaker('twoSamples', twoSampleSelector)(updatedAccumulator);
-  
-  // Update five-sample candlesticks
-  updatedAccumulator = candlestickMaker('fiveSamples', fiveSampleSelector)(updatedAccumulator);
+  tiers.forEach(({granularity, selector}) => {
+    updatedAccumulator = candlestickMaker(granularity as string, selector as (accumulator: Accumulator) => Candlestick[])(updatedAccumulator);
+  });
   
   // Update all-time candlestick
-    return updateAllTimeCandlestick('fiveSamples')(updatedAccumulator);
+  return updateAllTimeCandlestick(getLargestGranularity(tiers))(updatedAccumulator);
 } 
