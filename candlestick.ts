@@ -35,11 +35,11 @@ const makeSelector = (granularity: keyof Accumulator, lastCount: number) =>
     return R.takeLast(lastCount, samples) as R.NonEmptyArray<Candlestick>;
   };
 
-export const twoSampleSelector = makeSelector('oneSample', 2);
-export const fiveSampleSelector = makeSelector('twoSamples', 3);
-export const sixtySecondsSelector = makeSelector('oneSample', 60);
-export const sixtyMinutesSelector = makeSelector('sixtySeconds', 60);
-export const twentyFourHoursSelector = makeSelector('sixtyMinutes', 24);
+export const twoSampleSelector: (acc: Accumulator) => R.NonEmptyArray<Candlestick> = makeSelector('oneSample', 2);
+export const fiveSampleSelector: (acc: Accumulator) => R.NonEmptyArray<Candlestick> = makeSelector('twoSamples', 3);
+export const sixtySecondsSelector: (acc: Accumulator) => R.NonEmptyArray<Candlestick> = makeSelector('oneSample', 60);
+export const sixtyMinutesSelector: (acc: Accumulator) => R.NonEmptyArray<Candlestick> = makeSelector('sixtySeconds', 60);
+export const twentyFourHoursSelector: (acc: Accumulator) => R.NonEmptyArray<Candlestick> = makeSelector('sixtyMinutes', 24);
 
 const toCandlestick = R.applySpec<Candlestick>({
   open: getOpen,
@@ -90,12 +90,12 @@ export const processValue = (tiers: Tier[]) => (accumulator: Accumulator | null,
   return updateAllTimeCandlestick(getLargestGranularity(tiers))(updatedAccumulator);
 } 
 
-export const processValueTwoFive = processValue([
+export const processValueTwoFive: (accumulator: Accumulator | null, value: number) => Accumulator = processValue([
   {granularity: "twoSamples", selector: twoSampleSelector},
   {granularity: "fiveSamples", selector: fiveSampleSelector}
 ])
 
-export const processValueMinHourDay = processValue([
+export const processValueMinHourDay: (accumulator: Accumulator | null, value: number) => Accumulator = processValue([
   {granularity: "sixtySeconds", selector: sixtySecondsSelector},
   {granularity: "sixtyMinutes", selector: sixtyMinutesSelector},
   {granularity: "twentyFourHours", selector: twentyFourHoursSelector}
