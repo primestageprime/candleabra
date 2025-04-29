@@ -206,7 +206,7 @@ export function createFiveSampleCandlestick(
  * Updates the five-sample candlesticks in the accumulator
  */
 export function updateFiveSampleCandlesticks(accumulator: Accumulator): Accumulator {
-  const { oneSample } = accumulator;
+  const { oneSample, twoSamples } = accumulator;
   
   // We need at least 5 one-sample candlesticks
   if (oneSample.length < 5) {
@@ -224,7 +224,7 @@ export function updateFiveSampleCandlesticks(accumulator: Accumulator): Accumula
   // Get the five samples for the next candlestick
   const startIndex = accumulator.fiveSamples.length * 5;
   const nextFive = oneSample.slice(startIndex, startIndex + 5);
-  
+
   // Create a new five-sample candlestick
   const newFiveSample = {
     open: nextFive[0].open,
