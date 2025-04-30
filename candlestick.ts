@@ -54,7 +54,7 @@ export const selector = (granularity: string, lastCount: number) =>
   };
 
 
-const toCandlestick = R.applySpec<Candlestick>({
+export const toCandlestick = R.applySpec<Candlestick>({
   open: getOpen,
   close: getClose, 
   high: getHigh,
@@ -63,7 +63,7 @@ const toCandlestick = R.applySpec<Candlestick>({
 /**
  * Updates the two-sample candlesticks in the accumulator
  */
-const candlestickMaker = (parentGranularity: string, granularity: string, sampleCount: number, pruningCount: number) => (accumulator: Accumulator): Accumulator => {
+export const candlestickMaker = (parentGranularity: string, granularity: string, sampleCount: number, pruningCount: number) => (accumulator: Accumulator): Accumulator => {
   const selectedCandlesticks = selector(parentGranularity, sampleCount)(accumulator);
   const newCandlestick = toCandlestick(selectedCandlesticks);
   const priorAccumulator: R.NonEmptyArray<Candlestick> = accumulator[granularity] 
@@ -105,4 +105,4 @@ export const makeProcessValue = (sampleTiers: number[]) => (accumulator: Accumul
 
 export const processValueTwoFive: (accumulator: Accumulator | null, value: number) => Accumulator = makeProcessValue([ 2, 5])
 
-export const processValueMinHourDay: (accumulator: Accumulator | null, value: number) => Accumulator = makeProcessValue([60,  360,  1440])
+export const processValueTimeishSegment: (accumulator: Accumulator | null, value: number) => Accumulator = makeProcessValue([60/2,  (60*60 / 2),  (60*60*24)/2])
