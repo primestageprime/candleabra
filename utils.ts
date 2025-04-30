@@ -24,6 +24,10 @@ export const getHigh = (list: NonEmptyArray<Candlestick>) => {
 }
 
 export const getLow = (list: NonEmptyArray<Candlestick>) => {
+  if (list.length === 1) {
+    return list[0].low
+  }
+
   return R.reduce<Candlestick, number>(
     (acc, c) => R.isNil(acc) ? c.low : Math.min(acc, c.low),
     R.head(list)!.low

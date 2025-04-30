@@ -60,7 +60,6 @@ Deno.test("should process first value correctly", async (t) => {
     accumulator = processValueTwoFive(accumulator, values[0]);
   });
   
-  console.log(accumulator)
   await t.step("verify atomicSamples candlesticks", () => {
     assertEquals(verifyLength(1)(accumulator!.atomicSamples), true);
     assertEquals(verifyLatestAtomicSample(nominal)(accumulator), true);
@@ -77,6 +76,7 @@ Deno.test("should process first value correctly", async (t) => {
   });
 
   await t.step("verify allSamples candlesticks", () => {
+    assertEquals(verifyLength(1)(accumulator!.allSamples), true, "incorrect length");
     assertEquals(verifyAllSamples([nominal])(accumulator!), true);
   });
 }); 
@@ -92,7 +92,6 @@ Deno.test("should process second value correctly", async (t) => {
   await t.step("process second value", () => {
     accumulator = processValueTwoFive(accumulator, values[1]);
   });
-  console.log(accumulator)
   await t.step("verify one-sample candlesticks", () => {
     assertEquals(verifyLength(2)(accumulator.atomicSamples), true);
     assertEquals(verifyLatestAtomicSample(nominal)(accumulator), true);
@@ -120,7 +119,7 @@ Deno.test("should process 7th value correctly", async (t) => {
   await t.step("process 7th value", () => {
     accumulator = processValueTwoFive(accumulator, values[7]);
   });
-  
+
   await t.step("verify one-sample candlesticks", () => {
     assertEquals(verifyLength(2)(accumulator.atomicSamples), true);
     assertEquals(verifyLatestAtomicSample(critical)(accumulator), true);
@@ -132,7 +131,7 @@ Deno.test("should process 7th value correctly", async (t) => {
   });
 
   await t.step("verify five-sample candlesticks", () => {
-    assertEquals(verifyLength(2)(accumulator.samplesOf5), true);
+    assertEquals(verifyLength(1)(accumulator.samplesOf5), true);
     assertEquals(verifyLatestSamplesOf5(critical_new)(accumulator), true);
   });
   
@@ -164,7 +163,7 @@ Deno.test("should process 8th value correctly", async (t) => {
   });
 
   await t.step("verify five-sample candlesticks", () => {
-    assertEquals(verifyLength(3)(accumulator.samplesOf5), true);
+    assertEquals(verifyLength(1)(accumulator.samplesOf5), true);
     assertEquals(verifyLatestSamplesOf5(critical_new)(accumulator), true);
   });
 
@@ -196,7 +195,7 @@ Deno.test("should process 9th value correctly", async (t) => {
   });
 
   await t.step("verify five-sample candlesticks", () => {
-    assertEquals(verifyLength(4)(accumulator.samplesOf5), true);
+    assertEquals(verifyLength(1)(accumulator.samplesOf5), true);
     assertEquals(verifyLatestSamplesOf5(spike)(accumulator), true);
   });
 
@@ -210,7 +209,7 @@ Deno.test("should process 12th value correctly", async (t) => {
     atomicSamples: [critical, nominal, nominal, nominal],
     samplesOf2: [resolved, nominal],
     samplesOf5: [nominal,resolved],
-    allSamples: [nominal,resolved]
+    allSamples: [nominal, resolved]
   }
 
   await t.step("process 12th value", () => {
@@ -228,7 +227,7 @@ Deno.test("should process 12th value correctly", async (t) => {
   });
 
   await t.step("verify five-sample candlesticks", () => {
-    assertEquals(verifyLength(3)(accumulator.samplesOf5), true);
+    assertEquals(verifyLength(1)(accumulator.samplesOf5), true);
     assertEquals(verifyLatestSamplesOf5(temporary_resolution)(accumulator), true);
   });
   

@@ -1,4 +1,5 @@
 import type {NonEmptyArray} from "npm:@types/ramda"
+import { SMALLEST_GRANULARITY, LARGEST_GRANULARITY } from "./constants.ts"
 /**
  * Represents a candlestick with open, close, high, and low values
  */
@@ -12,8 +13,10 @@ export interface Candlestick {
 /**
  * Represents an accumulator that holds candlesticks for different time windows
  */
+
+
 export interface Accumulator {
-  atomicSamples: NonEmptyArray<Candlestick>;
-  allSamples: NonEmptyArray<Candlestick>;
+  [SMALLEST_GRANULARITY]: NonEmptyArray<Candlestick>;
+  [LARGEST_GRANULARITY]: NonEmptyArray<Candlestick>;
   [key: string]: NonEmptyArray<Candlestick>;
 }
