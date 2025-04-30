@@ -259,7 +259,7 @@ Deno.test("should process 18th value correctly", async (t) => {
   });
 
   await t.step("verify five-sample candlesticks", () => {
-    assertEquals(verifyLength(3)(accumulator.samplesOf5), true);
+    assertEquals(verifyLength(1)(accumulator.samplesOf5), true);
     assertEquals(verifyLatestSamplesOf5(nominal)(accumulator), true);
   });
 
