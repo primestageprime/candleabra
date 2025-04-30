@@ -1,4 +1,5 @@
 import * as R from "ramda"
+import type {NonEmptyArray} from "npm:@types/ramda@0.30.2"
 import type { Candlestick, Accumulator } from "./types.d.ts"
 import { getOpen, getClose, getHigh, getLow } from "./utils.ts"
 import { SMALLEST_GRANULARITY, LARGEST_GRANULARITY } from "./constants.ts"
@@ -54,7 +55,7 @@ export const selector = (granularity: string, lastCount: number) =>
   };
 
 
-export const toCandlestick = R.applySpec<Candlestick>({
+export const toCandlestick: (list: NonEmptyArray<Candlestick>) => Candlestick = R.applySpec<Candlestick>({
   open: getOpen,
   close: getClose, 
   high: getHigh,

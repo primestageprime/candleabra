@@ -1,4 +1,4 @@
-import type {NonEmptyArray} from "npm:@types/ramda"
+import type {NonEmptyArray} from "npm:@types/ramda@0.30.2"
 import { SMALLEST_GRANULARITY, LARGEST_GRANULARITY } from "./constants.ts"
 /**
  * Represents a candlestick with open, close, high, and low values
