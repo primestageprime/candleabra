@@ -29,7 +29,7 @@ export function updateOneSampleCandlesticks(accumulator: Accumulator | null, val
   };
 }
 
-const makeSelector = (granularity: keyof Accumulator, lastCount: number) => 
+export const makeSelector = (granularity: keyof Accumulator, lastCount: number) => 
   (acc: Accumulator): R.NonEmptyArray<Candlestick> => {
     const samples = acc[granularity];
     if (!samples || !Array.isArray(samples) || granularity === 'allTime') {
