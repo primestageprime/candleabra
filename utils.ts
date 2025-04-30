@@ -1,17 +1,18 @@
 import * as R from "ramda"
-import type { Candlestick } from "./types.d.ts"
+import type {NonEmptyArray} from "npm:@types/ramda"
+import type { Candlestick,  } from "./types.d.ts"
 
-export const getOpen = R.pipe<[Candlestick[]], Candlestick, number>(
+export const getOpen = R.pipe<[NonEmptyArray<Candlestick>], Candlestick, number>(
   R.head,
   R.prop('open')
 );
 
-export const getClose = R.pipe<[Candlestick[]], Candlestick, number>(
+export const getClose = R.pipe<[NonEmptyArray<Candlestick>], Candlestick, number>(
   R.last,
   R.prop('close')
 );
 
-export const getHigh = (list: Candlestick[]) => {
+export const getHigh = (list: NonEmptyArray<Candlestick>) => {
   if (list.length === 1) {
     return list[0].high
   }
@@ -22,7 +23,7 @@ export const getHigh = (list: Candlestick[]) => {
   )(R.tail(list))
 }
 
-export const getLow = (list: Candlestick[]) => {
+export const getLow = (list: NonEmptyArray<Candlestick>) => {
   return R.reduce<Candlestick, number>(
     (acc, c) => R.isNil(acc) ? c.low : Math.min(acc, c.low),
     R.head(list)!.low
