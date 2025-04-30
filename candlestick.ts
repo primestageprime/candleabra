@@ -2,6 +2,9 @@ import * as R from "ramda"
 import type { Candlestick, Accumulator, Tier } from "./types.d.ts"
 import { getOpen, getClose, getHigh, getLow } from "./utils.ts"
 
+// Re-export types
+export type { Candlestick, Accumulator, Tier }
+
 /**
  * Updates the one-sample candlesticks in the accumulator with a new value
  */
