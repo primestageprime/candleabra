@@ -59,7 +59,7 @@ Deno.test("should process first value correctly", async (t) => {
   await t.step("process first value", () => {
     accumulator = processValueTwoFive(accumulator, values[0]);
   });
-  
+  console.log(accumulator)
   await t.step("verify atomicSamples candlesticks", () => {
     assertEquals(verifyLength(1)(accumulator!.atomicSamples), true);
     assertEquals(verifyLatestAtomicSample(nominal)(accumulator), true);
@@ -153,7 +153,7 @@ Deno.test("should process 8th value correctly", async (t) => {
   });
   
   await t.step("verify one-sample candlesticks", () => {
-    assertEquals(verifyLength(3)(accumulator.atomicSamples), true);
+    assertEquals(verifyLength(2)(accumulator.atomicSamples), true);
     assertEquals(verifyLatestAtomicSample(critical)(accumulator), true);
   });
 
@@ -185,7 +185,7 @@ Deno.test("should process 9th value correctly", async (t) => {
   });
 
   await t.step("verify one-sample candlesticks", () => {
-    assertEquals(verifyLength(4)(accumulator.atomicSamples), true);
+    assertEquals(verifyLength(2)(accumulator.atomicSamples), true);
     assertEquals(verifyLatestAtomicSample(nominal)(accumulator), true);
   });
   
@@ -217,7 +217,7 @@ Deno.test("should process 12th value correctly", async (t) => {
   });
 
   await t.step("verify one-sample candlesticks", () => {
-    assertEquals(verifyLength(5)(accumulator.atomicSamples), true);
+    assertEquals(verifyLength(2)(accumulator.atomicSamples), true);
     assertEquals(verifyLatestAtomicSample(critical)(accumulator), true);
   });
 
@@ -247,9 +247,10 @@ Deno.test("should process 18th value correctly", async (t) => {
   await t.step("process 18th value", () => {
     accumulator = processValueTwoFive(accumulator, values[18]);
   });
+  console.log(accumulator)
 
   await t.step("verify one-sample candlesticks", () => {
-    assertEquals(verifyLength(5)(accumulator.atomicSamples), true);
+    assertEquals(verifyLength(2)(accumulator.atomicSamples), true);
     assertEquals(verifyLatestAtomicSample(nominal)(accumulator), true);
   });
   

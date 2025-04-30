@@ -1,8 +1,8 @@
 import * as R from "ramda"
 import type {NonEmptyArray} from "npm:@types/ramda@0.30.2"
-import type { Candlestick, Accumulator } from "./types.d.ts"
+import type { Candlestick, Accumulator, SampleTiers } from "./types.d.ts"
 import { getOpen, getClose, getHigh, getLow } from "./utils.ts"
-import { SMALLEST_GRANULARITY, LARGEST_GRANULARITY } from "./constants.ts"
+import { SMALLEST_GRANULARITY, LARGEST_GRANULARITY, fiveMinuteish, minuteish, hourish } from "./constants.ts"
 
 // Re-export types
 export type { Candlestick, Accumulator }
@@ -77,24 +77,24 @@ export const candlestickMaker = (parentGranularity: string, granularity: string,
 }
   
 
-const getLargestTierGranularity = R.pipe<[number[]], number, string>(
-  R.head,
-  num => `samplesOf${num}`
+const getLargestTierGranularity = R.pipe<[R.NonEmptyArray<SampleTiers>], SampleTiers, string>(
+  R.last,
+  R.prop('granularity')
 )
 
 /**
  * Processes a new value and updates the accumulator
  */
 
-export const makeProcessValue = (sampleTiers: number[]) => (accumulator: Accumulator | null, value: number): Accumulator => {
+export const makeProcessValue = (sampleTiers: R.NonEmptyArray<SampleTiers>) => (accumulator: Accumulator | null, value: number): Accumulator => {
 
   // Update one-sample candlesticks
-  let updatedAccumulator = updateAtomicSampleCandlesticks(accumulator, value, R.last(sampleTiers) ?? 1);
+  const smallestTier = R.head(sampleTiers)
+  let updatedAccumulator = updateAtomicSampleCandlesticks(accumulator, value, smallestTier.sampleCount ?? 1);
   const defaultPruningCount = 1
   let parentGranularity = SMALLEST_GRANULARITY
-  const pairs = R.aperture(2, [...sampleTiers, 1])
-  pairs.forEach(([sampleCount, nextSampleCount]) => {
-    const granularity = `samplesOf${sampleCount}`
+  const pairs = R.aperture(2, [...sampleTiers, {granularity: "default", sampleCount: defaultPruningCount}])
+  pairs.forEach(([{granularity, sampleCount}, {sampleCount: nextSampleCount}]) => {
     const pruningCount = nextSampleCount || defaultPruningCount
     updatedAccumulator = candlestickMaker(parentGranularity, granularity, sampleCount, pruningCount)(updatedAccumulator);
     parentGranularity = granularity
@@ -104,6 +104,10 @@ export const makeProcessValue = (sampleTiers: number[]) => (accumulator: Accumul
   return updateAllTimeCandlestick(getLargestTierGranularity(sampleTiers))(updatedAccumulator);
 } 
 
-export const processValueTwoFive: (accumulator: Accumulator | null, value: number) => Accumulator = makeProcessValue([ 2, 5])
+export const processValueTwoFive: (accumulator: Accumulator | null, value: number) => Accumulator = makeProcessValue([ {granularity: "samplesOf2", sampleCount: 2}, {granularity: "samplesOf5", sampleCount: 5}])
 
-export const processValueTimeishSegment: (accumulator: Accumulator | null, value: number) => Accumulator = makeProcessValue([60/2,  (60*60 / 2),  (60*60*24)/2])
+export const processValueTimeishSegments: (accumulator: Accumulator | null, value: number) => Accumulator = makeProcessValue([ 
+  {granularity: "minuteish", sampleCount: minuteish}, 
+  {granularity: "fiveMinuteish", sampleCount: fiveMinuteish}, 
+  {granularity: "hourish", sampleCount: hourish}
+])

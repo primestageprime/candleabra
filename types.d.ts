@@ -20,3 +20,8 @@ export interface Accumulator {
   [LARGEST_GRANULARITY]: NonEmptyArray<Candlestick>;
   [key: string]: NonEmptyArray<Candlestick>;
 }
+
+export interface SampleTiers {
+  granularity: string;
+  sampleCount: number;
+}
