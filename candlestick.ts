@@ -6,6 +6,7 @@ import { SMALLEST_GRANULARITY, LARGEST_GRANULARITY, fiveMinuteish, minuteish, ho
 
 // Re-export types
 export type { Candlestick, Accumulator }
+export {SMALLEST_GRANULARITY, LARGEST_GRANULARITY, fiveMinuteish, minuteish, hourish}
 
 /**
  * Updates the one-sample candlesticks in the accumulator with a new value
