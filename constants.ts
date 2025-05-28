@@ -1,6 +1,7 @@
-export const SMALLEST_GRANULARITY = 'atomicSamples'
-export const LARGEST_GRANULARITY = 'allSamples'
+export const SMALLEST_GRANULARITY = "atomicSamples";
+export const LARGEST_GRANULARITY = "allSamples";
 
-export const minuteish = 60/2
-export const fiveMinuteish = 60*5/2
-export const hourish = 60*60/2
+// "ish" implies second-level atomic granularity
+export const minuteish = 60 / 2;
+export const fiveMinuteish = Math.ceil(5 / 2);
+export const hourish = Math.ceil(12 / 2);
