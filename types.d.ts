@@ -3,7 +3,7 @@ import { SMALLEST_GRANULARITY, LARGEST_GRANULARITY } from "./constants.ts"
 /**
  * Represents a candlestick with open, close, high, and low values
  */
-export interface Candlestick {
+export type Candlestick = {
   open: number;
   close: number;
   high: number;
@@ -14,14 +14,14 @@ export interface Candlestick {
  * Represents an accumulator that holds candlesticks for different time windows
  */
 
-
-export interface Accumulator {
+export type Accumulator = {
   [SMALLEST_GRANULARITY]: NonEmptyArray<Candlestick>;
   [LARGEST_GRANULARITY]: NonEmptyArray<Candlestick>;
+  allSamples: NonEmptyArray<Candlestick>;
   [key: string]: NonEmptyArray<Candlestick>;
 }
 
-export interface SampleTiers {
+export type SampleTiers = {
   granularity: string;
   sampleCount: number;
 }

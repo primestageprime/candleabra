@@ -22,6 +22,7 @@ export function updateAtomicSampleCandlesticks(accumulator: Accumulator | null, 
   if (!accumulator) {
     return {
       [SMALLEST_GRANULARITY]: [newCandlestick],
+      [LARGEST_GRANULARITY]: [newCandlestick],
       allSamples: [newCandlestick]
     };
   }
@@ -30,14 +31,17 @@ export function updateAtomicSampleCandlesticks(accumulator: Accumulator | null, 
     ...accumulator,
     [SMALLEST_GRANULARITY]: R.isEmpty(accumulator[SMALLEST_GRANULARITY]) 
       ? [newCandlestick] 
-      : R.takeLast(pruningCount, [...accumulator[SMALLEST_GRANULARITY], newCandlestick]) as R.NonEmptyArray<Candlestick>
+      : R.takeLast(pruningCount, [...accumulator[SMALLEST_GRANULARITY], newCandlestick]) as R.NonEmptyArray<Candlestick>,
+    [LARGEST_GRANULARITY]: R.isEmpty(accumulator[LARGEST_GRANULARITY]) 
+      ? [newCandlestick] 
+      : R.takeLast(pruningCount, [...accumulator[LARGEST_GRANULARITY], newCandlestick]) as R.NonEmptyArray<Candlestick>
   };
 }
 
 /**
- * Updates the all-time candlestick with a new value
+ * Updates the all-samples candlestick with a new value
  */
-export const updateAllTimeCandlestick = (largestTierGranularity: keyof Accumulator) => (accumulator: Accumulator): Accumulator => {
+export const updateAllSamplesCandlestick = (largestTierGranularity: keyof Accumulator) => (accumulator: Accumulator): Accumulator => {
     const samples: R.NonEmptyArray<Candlestick> = accumulator[largestTierGranularity] 
     const result: R.NonEmptyArray<Candlestick> = [toCandlestick([...accumulator.allSamples, ...samples])] 
     return {
@@ -54,7 +58,6 @@ export const selector = (granularity: string, lastCount: number) =>
     }
     return R.takeLast(lastCount, samples) as R.NonEmptyArray<Candlestick>;
   };
-
 
 export const toCandlestick: (list: NonEmptyArray<Candlestick>) => Candlestick = R.applySpec<Candlestick>({
   open: getOpen,
@@ -93,7 +96,7 @@ export const makeProcessValue = (sampleTiers: R.NonEmptyArray<SampleTiers>) => (
   const smallestTier = R.head(sampleTiers)
   let updatedAccumulator = updateAtomicSampleCandlesticks(accumulator, value, smallestTier.sampleCount ?? 1);
   const defaultPruningCount = 1
-  let parentGranularity = SMALLEST_GRANULARITY
+  let parentGranularity: string = SMALLEST_GRANULARITY
   const pairs = R.aperture(2, [...sampleTiers, {granularity: "default", sampleCount: defaultPruningCount}])
   pairs.forEach(([{granularity, sampleCount}, {sampleCount: nextSampleCount}]) => {
     const pruningCount = nextSampleCount || defaultPruningCount
@@ -101,8 +104,8 @@ export const makeProcessValue = (sampleTiers: R.NonEmptyArray<SampleTiers>) => (
     parentGranularity = granularity
   });
 
-  // Update all-time candlestick
-  return updateAllTimeCandlestick(getLargestTierGranularity(sampleTiers))(updatedAccumulator);
+  // Update all-samples candlestick
+  return updateAllSamplesCandlestick(getLargestTierGranularity(sampleTiers))(updatedAccumulator);
 } 
 
 export const processValueTwoFive: (accumulator: Accumulator | null, value: number) => Accumulator = makeProcessValue([ {granularity: "samplesOf2", sampleCount: 2}, {granularity: "samplesOf5", sampleCount: 5}])
