@@ -22,8 +22,7 @@ export function updateAtomicSampleCandlesticks(accumulator: Accumulator | null, 
   if (!accumulator) {
     return {
       [SMALLEST_GRANULARITY]: [newCandlestick],
-      [LARGEST_GRANULARITY]: [newCandlestick],
-      allSamples: [newCandlestick]
+      [LARGEST_GRANULARITY]: [newCandlestick]
     };
   }
 
@@ -43,7 +42,7 @@ export function updateAtomicSampleCandlesticks(accumulator: Accumulator | null, 
  */
 export const updateAllSamplesCandlestick = (largestTierGranularity: keyof Accumulator) => (accumulator: Accumulator): Accumulator => {
     const samples: R.NonEmptyArray<Candlestick> = accumulator[largestTierGranularity] 
-    const result: R.NonEmptyArray<Candlestick> = [toCandlestick([...accumulator.allSamples, ...samples])] 
+    const result: R.NonEmptyArray<Candlestick> = [toCandlestick([...accumulator[LARGEST_GRANULARITY], ...samples])] 
     return {
       ...accumulator,
       [LARGEST_GRANULARITY]: result
