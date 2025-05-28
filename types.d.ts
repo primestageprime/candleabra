@@ -17,7 +17,6 @@ export type Candlestick = {
 export type Accumulator = {
   [SMALLEST_GRANULARITY]: NonEmptyArray<Candlestick>;
   [LARGEST_GRANULARITY]: NonEmptyArray<Candlestick>;
-  allSamples: NonEmptyArray<Candlestick>;
   [key: string]: NonEmptyArray<Candlestick>;
 }
 
