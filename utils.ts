@@ -33,3 +33,11 @@ export const getLow = (list: NonEmptyArray<Candlestick>): number => {
     R.head(list)!.low
   )(R.tail(list))
 }
+
+export const getMean = (list: NonEmptyArray<Candlestick>): number => {
+  if (list.length === 1) {
+    return list[0].mean
+  }
+
+  return R.mean(R.map(R.prop('mean'), list))
+}

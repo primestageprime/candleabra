@@ -8,6 +8,7 @@ export type Candlestick = {
   close: number;
   high: number;
   low: number;
+  mean: number;
 }
 
 /**

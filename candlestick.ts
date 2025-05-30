@@ -1,12 +1,12 @@
 import * as R from "ramda"
 import type {NonEmptyArray} from "npm:@types/ramda@0.30.2"
 import type { Candlestick, Accumulator, SampleTiers } from "./types.d.ts"
-import { getOpen, getClose, getHigh, getLow } from "./utils.ts"
-import { SMALLEST_GRANULARITY, LARGEST_GRANULARITY, fiveMinuteish, minuteish, hourish } from "./constants.ts"
+import { getOpen, getClose, getHigh, getLow, getMean } from "./utils.ts"
+import { SMALLEST_GRANULARITY, LARGEST_GRANULARITY, fifteenMinuteish, fiveMinuteish, minuteish, hourish } from "./constants.ts"
 
 // Re-export types
 export type { Candlestick, Accumulator }
-export {SMALLEST_GRANULARITY, LARGEST_GRANULARITY, fiveMinuteish, minuteish, hourish}
+export {SMALLEST_GRANULARITY, LARGEST_GRANULARITY, fifteenMinuteish, fiveMinuteish, minuteish, hourish}
 
 /**
  * Updates the one-sample candlesticks in the accumulator with a new value
@@ -16,7 +16,8 @@ export function updateAtomicSampleCandlesticks(accumulator: Accumulator | null, 
     open: value,
     close: value,
     high: value,
-    low: value
+    low: value,
+    mean: value
   };
   
   if (!accumulator) {
@@ -62,7 +63,8 @@ export const toCandlestick: (list: NonEmptyArray<Candlestick>) => Candlestick = 
   open: getOpen,
   close: getClose, 
   high: getHigh,
-  low: getLow
+  low: getLow,
+  mean: getMean
 })
 /**
  * Updates the two-sample candlesticks in the accumulator
@@ -112,5 +114,6 @@ export const processValueTwoFive: (accumulator: Accumulator | null, value: numbe
 export const processValueTimeishSegments: (accumulator: Accumulator | null, value: number) => Accumulator = makeProcessValue([ 
   {granularity: "minuteish", sampleCount: minuteish}, 
   {granularity: "fiveMinuteish", sampleCount: fiveMinuteish}, 
+  {granularity: "fifteenMinuteish", sampleCount: fifteenMinuteish}, 
   {granularity: "hourish", sampleCount: hourish}
 ])

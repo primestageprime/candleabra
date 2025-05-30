@@ -6,12 +6,12 @@ import {
 import type { Accumulator } from "./types.d.ts";
 const values = [1,1,1,1,1, 1,1,9,9,1, 1,1,9,1,1, 1,1,1,1,1]
 
-const nominal = {open: 1, close: 1, high: 1, low: 1}
-const critical = {open: 9, close: 9, high: 9, low: 9}
-const critical_new = {open: 1, close: 9, high: 9, low: 1}
-const resolved = {open: 9, close: 1, high: 9, low: 1}
-const spike = {open: 1, close: 1, high: 9, low: 1}
-const temporary_resolution = {open: 9, close: 9, high: 9, low: 1}
+const nominal = {open: 1, close: 1, high: 1, low: 1, mean: 1}
+const critical = {open: 9, close: 9, high: 9, low: 9, mean: 9}
+const critical_new = {open: 1, close: 9, high: 9, low: 1, mean: 5}
+const resolved = {open: 9, close: 1, high: 9, low: 1, mean: 5}
+const spike = {open: 1, close: 1, high: 9, low: 1, mean: 5}
+const temporary_resolution = {open: 9, close: 9, high: 9, low: 1, mean: 5}
 
 // Helper functions
 const getLatestAtomicSample = R.pipe(
