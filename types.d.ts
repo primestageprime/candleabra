@@ -1,5 +1,7 @@
 import type {NonEmptyArray} from "npm:@types/ramda@0.30.2"
 import { SMALLEST_GRANULARITY, LARGEST_GRANULARITY } from "./constants.ts"
+import { DateTime } from "luxon";
+
 /**
  * Represents a candlestick with open, close, high, and low values
  */
@@ -9,6 +11,8 @@ export type Candlestick = {
   high: number;
   low: number;
   mean: number;
+  openAt: DateTime;
+  closeAt: DateTime;
 }
 
 /**
