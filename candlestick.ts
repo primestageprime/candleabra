@@ -8,6 +8,28 @@ import { SMALLEST_GRANULARITY, LARGEST_GRANULARITY, fifteenMinuteish, fiveMinute
 export type { Candlestick, Accumulator }
 export {SMALLEST_GRANULARITY, LARGEST_GRANULARITY, fifteenMinuteish, fiveMinuteish, minuteish, hourish}
 
+export interface GridData {
+  start: string;
+  duration: string;
+  end: string;
+  open: string;
+  mean: string;
+  close: string;
+  low: string;
+}
+
+export function observeCandlestick(candlestick: Candlestick, startTime?: string, endTime?: string): GridData {
+  return {
+    start: startTime || "N/A",
+    duration: "1m", // You can make this configurable
+    end: endTime || "N/A",
+    open: candlestick.open.toString(),
+    mean: candlestick.mean.toString(),
+    close: candlestick.close.toString(),
+    low: candlestick.low.toString()
+  };
+}
+
 /**
  * Updates the one-sample candlesticks in the accumulator with a new value
  */
