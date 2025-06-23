@@ -163,3 +163,14 @@ export function addSampleToCandelabra(
     eternal: reducedCandlesticks,
   };
 }
+
+export function addSamplesToCandelabra(
+  samples: R.NonEmptyArray<Sample>,
+  initialCandelabra: Candelabra,
+): Candelabra {
+  return R.reduce(
+    (candelabra, sample) => addSampleToCandelabra(sample, candelabra),
+    initialCandelabra,
+    samples,
+  );
+}

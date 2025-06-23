@@ -1,5 +1,6 @@
 import { DateTime, Duration } from "luxon";
 import {
+  addSamplesToCandelabra,
   addSampleToCandelabra,
   reduceCandlesticks,
   toCandelabra,
@@ -249,34 +250,43 @@ Deno.test("addSampleToCandelabra", async (t) => {
   );
 
   await t.step(
-    "addSampleToCandelabra: if a sample is recieved that skips an entire bucket's duration, should generate the correct number of candlesticks in that bucket using existing data",
+    "addSampleToCandelabra: if a sample is recieved that skips multiple durations of a bucket, should generate the correct number of candlesticks in that bucket using existing data",
     () => {
+      const firstMinTime = testTime.plus({ milliseconds: 100 });
+      const firstMinSample1 = toSample(2, firstMinTime);
+      const firstMinTime2 = firstMinTime.plus({ milliseconds: 100 });
+      const firstMinSample2 = toSample(3, firstMinTime2);
       const newSample = toSample(
-        2,
-        testTime.plus(oneMinute).plus({ milliseconds: 1 }),
+        4,
+        testTime.plus({ minutes: 3, seconds: 30 }),
       );
-      const actual = addSampleToCandelabra(newSample, oneMinuteCandelabra);
-      const expectedOldCandlestick = {
-        open: 1,
-        close: 1,
-        high: 1,
-        low: 1,
-        mean: 1,
-        openAt: testTime,
-        closeAt: testTime.plus(oneMinute),
-      };
-      const expectedNewCandlestick = {
-        open: 2,
-        close: 2,
-        high: 2,
-        low: 2,
-        mean: 2,
+      const actual = addSamplesToCandelabra(
+        [firstMinSample1, firstMinSample2, newSample],
+        oneMinuteCandelabra,
+      );
+
+      const expectedFirstMinCandlestick = reduceCandlesticks([
+        defaultSampleCandlestick,
+        toCandlestick(firstMinSample1),
+        toCandlestick(firstMinSample2),
+      ]);
+
+      const expectedSecondMinCandlestick = {
+        ...toCandlestick(firstMinSample2),
         openAt: testTime.plus(oneMinute),
-        closeAt: newSample.dateTime,
+        closeAt: testTime.plus({ minutes: 2 }),
       };
+      const expectedThirdMinCandlestick = {
+        ...expectedSecondMinCandlestick,
+        openAt: testTime.plus({ minutes: 2 }),
+        closeAt: testTime.plus({ minutes: 3 }),
+      };
+      const expectedCurrentCandlestick = toCandlestick(newSample);
       const expectedEternalCandlestick = reduceCandlesticks([
-        expectedOldCandlestick,
-        expectedNewCandlestick,
+        expectedFirstMinCandlestick,
+        expectedSecondMinCandlestick,
+        expectedThirdMinCandlestick,
+        expectedCurrentCandlestick,
       ]);
       const expected = {
         samples: [newSample],
@@ -285,8 +295,10 @@ Deno.test("addSampleToCandelabra", async (t) => {
             name: "1m",
             bucketDuration: oneMinute,
             candlesticks: [
-              expectedOldCandlestick,
-              expectedNewCandlestick,
+              expectedFirstMinCandlestick,
+              expectedSecondMinCandlestick,
+              expectedThirdMinCandlestick,
+              expectedCurrentCandlestick,
             ],
           },
         ],
