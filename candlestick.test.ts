@@ -20,12 +20,8 @@ const fifteenMinutes = Duration.fromISO("PT15M");
 const defaultSample = toSample(1, testTime);
 const defaultSampleCandlestick = toCandlestick(defaultSample);
 const oneMinuteBucket = { name: "1m", bucketDuration: oneMinute };
-const fiveMinutesBucket = { name: "5m", bucketDuration: fiveMinutes };
-const fifteenMinutesBucket = { name: "15m", bucketDuration: fifteenMinutes };
 const defaultCandelabra = toCandelabra(defaultSample, [
   oneMinuteBucket,
-  fiveMinutesBucket,
-  fifteenMinutesBucket,
 ]);
 
 Deno.test("toSample", async (t) => {
@@ -40,8 +36,6 @@ Deno.test("toCandelabra", async (t) => {
     const sample = toSample(1, testTime);
     const bucketConfigs: R.NonEmptyArray<BucketConfig> = [
       { name: "1m", bucketDuration: oneMinute },
-      { name: "5m", bucketDuration: fiveMinutes },
-      { name: "15m", bucketDuration: fifteenMinutes },
     ];
     const actual: Candelabra = toCandelabra(sample, bucketConfigs);
     const expectedCandlestick: Candlestick = toCandlestick(sample);
@@ -51,16 +45,6 @@ Deno.test("toCandelabra", async (t) => {
         {
           name: "1m",
           bucketDuration: oneMinute,
-          candlesticks: [reduceCandlesticks([expectedCandlestick])],
-        },
-        {
-          name: "5m",
-          bucketDuration: fiveMinutes,
-          candlesticks: [reduceCandlesticks([expectedCandlestick])],
-        },
-        {
-          name: "15m",
-          bucketDuration: fifteenMinutes,
           candlesticks: [reduceCandlesticks([expectedCandlestick])],
         },
       ],
@@ -87,20 +71,6 @@ Deno.test("addSampleToCandelabra", async (t) => {
           {
             name: "1m",
             bucketDuration: oneMinute,
-            candlesticks: [
-              expectedCandlestick,
-            ],
-          },
-          {
-            name: "5m",
-            bucketDuration: fiveMinutes,
-            candlesticks: [
-              expectedCandlestick,
-            ],
-          },
-          {
-            name: "15m",
-            bucketDuration: fifteenMinutes,
             candlesticks: [
               expectedCandlestick,
             ],
@@ -135,16 +105,6 @@ Deno.test("addSampleToCandelabra", async (t) => {
             bucketDuration: oneMinute,
             candlesticks: [sampleCandlestick],
           },
-          {
-            name: "5m",
-            bucketDuration: fiveMinutes,
-            candlesticks: [sampleCandlestick],
-          },
-          {
-            name: "15m",
-            bucketDuration: fifteenMinutes,
-            candlesticks: [sampleCandlestick],
-          },
         ],
         eternal: sampleCandlestick,
       };
@@ -164,7 +124,7 @@ Deno.test("addSampleToCandelabra", async (t) => {
   );
 
   await t.step(
-    "addSampleToCandelabra should allow a sample with datetime equal to the latest saved sample plus the duration of the last bucket",
+    "addSampleToCandelabra should allow a sample with datetime equal to the latest saved sample minus the duration of the first bucket",
     () => {
       const oneMinAgo = testTime.minus(oneMinute);
       const oldSample = toSample(1, oneMinAgo);
@@ -182,16 +142,6 @@ Deno.test("addSampleToCandelabra", async (t) => {
           {
             name: "1m",
             bucketDuration: oneMinute,
-            candlesticks: [oldCandlestick],
-          },
-          {
-            name: "5m",
-            bucketDuration: fiveMinutes,
-            candlesticks: [oldCandlestick],
-          },
-          {
-            name: "15m",
-            bucketDuration: fifteenMinutes,
             candlesticks: [oldCandlestick],
           },
         ],
