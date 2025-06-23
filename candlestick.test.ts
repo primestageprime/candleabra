@@ -25,12 +25,14 @@ const defaultCandelabra = toCandelabra(defaultSample, [
   { name: "15m", bucketDuration: fifteenMinutes },
 ]);
 
-Deno.test("Candlestick", async (t) => {
+Deno.test("toSample", async (t) => {
   await t.step("toSample", () => {
     const sample = toSample(1, testTime);
     assertEquals(sample, { dateTime: testTime, value: 1 });
   });
+});
 
+Deno.test("toCandelabra", async (t) => {
   await t.step("toCandelabra", () => {
     const sample = toSample(1, testTime);
     const bucketConfigs: R.NonEmptyArray<BucketConfig> = [
@@ -63,7 +65,9 @@ Deno.test("Candlestick", async (t) => {
     };
     assertEquals(actual, expected);
   });
+});
 
+Deno.test("addSampleToCandelabra", async (t) => {
   await t.step(
     "addSampleToCandelabra should be able to add a sample to a candelabra",
     () => {
