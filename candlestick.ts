@@ -33,15 +33,19 @@ export interface GridData {
 
 export const reduceCandlesticks: (
   list: NonEmptyArray<Candlestick>,
-) => Candlestick = R.applySpec<Candlestick>({
-  open: getOpen,
-  close: getClose,
-  high: getHigh,
-  low: getLow,
-  mean: getMean,
-  openAt: getOpenAt,
-  closeAt: getCloseAt,
-});
+) => Candlestick = R.pipe(
+  // Sort candlesticks by datetime to ensure proper chronological order
+  R.sortBy((c: Candlestick) => c.openAt.toMillis()),
+  R.applySpec<Candlestick>({
+    open: getOpen,
+    close: getClose,
+    high: getHigh,
+    low: getLow,
+    mean: getMean,
+    openAt: getOpenAt,
+    closeAt: getCloseAt,
+  }),
+);
 
 export const toCandlestick: (sample: Sample) => Candlestick = (sample) => {
   return {
@@ -88,6 +92,34 @@ export function addSampleToCandelabra(
   sample: Sample,
   candelabra: Candelabra,
 ): Candelabra {
+  // Get the latest sample's datetime
+  const latestSample = R.last(candelabra.samples);
+  if (!latestSample) {
+    // If no samples exist, just add the new one
+    return {
+      samples: [sample],
+      buckets: R.map(
+        (bucket) => ({
+          ...bucket,
+          candlesticks: [toCandlestick(sample)] as R.NonEmptyArray<Candlestick>,
+        }),
+        candelabra.buckets,
+      ) as R.NonEmptyArray<Bucket>,
+      eternal: toCandlestick(sample),
+    };
+  }
+
+  // Get the first bucket's duration (smallest granularity)
+  const firstBucketDuration = candelabra.buckets[0].bucketDuration;
+
+  // Calculate the cutoff time: latest sample time minus first bucket duration
+  const cutoffTime = latestSample.dateTime.minus(firstBucketDuration);
+
+  // If the new sample is too old, ignore it
+  if (sample.dateTime < cutoffTime) {
+    return candelabra;
+  }
+
   // Check if a sample with the same dateTime exists
   const hasSameDateTime = R.any(
     (existingSample) => existingSample.dateTime.equals(sample.dateTime),
@@ -114,10 +146,22 @@ export function addSampleToCandelabra(
     >;
   }
 
-  // Recalculate all candlesticks from updatedSamples
+  // Sort samples by datetime (ascending, oldest first) for aggregates
+  const sortedSamplesAsc = R.sort(
+    (a: Sample, b: Sample) => a.dateTime.toMillis() - b.dateTime.toMillis(),
+    updatedSamples,
+  ) as R.NonEmptyArray<Sample>;
+
+  // Sort samples by datetime (descending, newest first) for the returned object
+  const sortedSamplesDesc = R.sort(
+    (a: Sample, b: Sample) => b.dateTime.toMillis() - a.dateTime.toMillis(),
+    updatedSamples,
+  ) as R.NonEmptyArray<Sample>;
+
+  // Recalculate all candlesticks from sortedSamplesAsc
   const updatedCandlesticks = R.map(
     toCandlestick,
-    updatedSamples,
+    sortedSamplesAsc,
   ) as R.NonEmptyArray<Candlestick>;
   const updatedBuckets = R.map(
     (bucket) => ({
@@ -132,7 +176,7 @@ export function addSampleToCandelabra(
   const updatedEternal = reduceCandlesticks(updatedCandlesticks);
 
   return {
-    samples: updatedSamples,
+    samples: sortedSamplesAsc,
     buckets: updatedBuckets,
     eternal: updatedEternal,
   };

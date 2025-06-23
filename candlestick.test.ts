@@ -74,15 +74,15 @@ Deno.test("addSampleToCandelabra", async (t) => {
   await t.step(
     "addSampleToCandelabra should be able to add a sample to a candelabra",
     () => {
-      const sample = toSample(1, tPlusOneMs);
-      const actual = addSampleToCandelabra(sample, defaultCandelabra);
-      const sampleCandlestick = toCandlestick(sample);
+      const newSample = toSample(1, tPlusOneMs);
+      const actual = addSampleToCandelabra(newSample, defaultCandelabra);
+      const sampleCandlestick = toCandlestick(newSample);
       const expectedCandlestick = reduceCandlesticks([
         defaultSampleCandlestick,
         sampleCandlestick,
       ]);
       const expected = {
-        samples: [defaultSample, sample],
+        samples: [defaultSample, newSample],
         buckets: [
           {
             name: "1m",
@@ -166,33 +166,36 @@ Deno.test("addSampleToCandelabra", async (t) => {
   await t.step(
     "addSampleToCandelabra should allow a sample with datetime equal to the latest saved sample plus the duration of the last bucket",
     () => {
-      const justRight = testTime.plus(fifteenMinutes);
-      const justRightSample = toSample(1, justRight);
-      const justRightSampleCandlestick = reduceCandlesticks([
+      const oneMinAgo = testTime.minus(oneMinute);
+      const oldSample = toSample(1, oneMinAgo);
+      const oldCandlestick = reduceCandlesticks([
         defaultSampleCandlestick,
-        toCandlestick(justRightSample),
+        toCandlestick(oldSample),
       ]);
-      const actual = addSampleToCandelabra(justRightSample, defaultCandelabra);
+      const actual = addSampleToCandelabra(
+        oldSample,
+        defaultCandelabra,
+      );
       const expected = {
-        samples: [justRightSample, defaultSample],
+        samples: [oldSample, defaultSample],
         buckets: [
           {
             name: "1m",
             bucketDuration: oneMinute,
-            candlesticks: [justRightSampleCandlestick],
+            candlesticks: [oldCandlestick],
           },
           {
             name: "5m",
             bucketDuration: fiveMinutes,
-            candlesticks: [justRightSampleCandlestick],
+            candlesticks: [oldCandlestick],
           },
           {
             name: "15m",
             bucketDuration: fifteenMinutes,
-            candlesticks: [justRightSampleCandlestick],
+            candlesticks: [oldCandlestick],
           },
         ],
-        eternal: justRightSampleCandlestick,
+        eternal: oldCandlestick,
       };
       assertEquals(actual, expected);
     },
@@ -200,22 +203,25 @@ Deno.test("addSampleToCandelabra", async (t) => {
 });
 
 Deno.test("reduceCandlesticks", async (t) => {
-  await t.step("reduceCandlesticks should handle out of order candlesticks", () => {
-    const oldSample = toSample(1, testTime.minus(oneMinute));
-    const newSample = toSample(2, testTime);
-    const actual = reduceCandlesticks([
-      toCandlestick(newSample),
-      toCandlestick(oldSample),
-    ]);
-    const expected = {
-      open: 1,
-      close: 2,
-      high: 2,
-      low: 1,
-      mean: 1.5,
-      openAt: oldSample.dateTime,
-      closeAt: newSample.dateTime,
-    };
-    assertEquals(actual, expected);
-  });
+  await t.step(
+    "reduceCandlesticks should handle out of order candlesticks",
+    () => {
+      const oldSample = toSample(1, testTime.minus(oneMinute));
+      const newSample = toSample(2, testTime);
+      const actual = reduceCandlesticks([
+        toCandlestick(newSample),
+        toCandlestick(oldSample),
+      ]);
+      const expected = {
+        open: 1,
+        close: 2,
+        high: 2,
+        low: 1,
+        mean: 1.5,
+        openAt: oldSample.dateTime,
+        closeAt: newSample.dateTime,
+      };
+      assertEquals(actual, expected);
+    },
+  );
 });
