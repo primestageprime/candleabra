@@ -16,27 +16,10 @@ import {
   getOpen,
   getOpenAt,
 } from "./utils.ts";
-import {
-  fifteenMinuteish,
-  fiveMinuteish,
-  hourish,
-  LARGEST_GRANULARITY,
-  minuteish,
-  SMALLEST_GRANULARITY,
-} from "./constants.ts";
 import { DateTime } from "luxon";
 
 // Re-export types
 export * from "./types.d.ts";
-
-export {
-  fifteenMinuteish,
-  fiveMinuteish,
-  hourish,
-  LARGEST_GRANULARITY,
-  minuteish,
-  SMALLEST_GRANULARITY,
-};
 
 export interface GridData {
   start: string;
@@ -95,7 +78,7 @@ export function toCandelabra(
     bucketConfigs,
   ) as R.NonEmptyArray<Bucket>;
   return {
-    atomic: [sample],
+    samples: [sample],
     buckets: buckets,
     eternal: initialCandlestick,
   };
@@ -108,10 +91,10 @@ export function addSampleToCandelabra(
   // Check if a sample with the same dateTime exists
   const hasSameDateTime = R.any(
     (existingSample) => existingSample.dateTime.equals(sample.dateTime),
-    candelabra.atomic,
+    candelabra.samples,
   );
 
-  let updatedAtomic: R.NonEmptyArray<Sample>;
+  let updatedSamples: R.NonEmptyArray<Sample>;
   if (hasSameDateTime) {
     // Replace the sample with the same dateTime (upsert)
     const replaced = R.map(
@@ -119,22 +102,22 @@ export function addSampleToCandelabra(
         existingSample.dateTime.equals(sample.dateTime)
           ? sample
           : existingSample,
-      candelabra.atomic,
+      candelabra.samples,
     );
     // Remove duplicates in case there are multiple with the same dateTime (shouldn't happen, but for safety)
     const unique = R.uniqBy((s: Sample) => s.dateTime.toISO(), replaced);
-    updatedAtomic = unique as R.NonEmptyArray<Sample>;
+    updatedSamples = unique as R.NonEmptyArray<Sample>;
   } else {
     // Otherwise, append as before
-    updatedAtomic = R.append(sample, candelabra.atomic) as R.NonEmptyArray<
+    updatedSamples = R.append(sample, candelabra.samples) as R.NonEmptyArray<
       Sample
     >;
   }
 
-  // Recalculate all candlesticks from updatedAtomic
+  // Recalculate all candlesticks from updatedSamples
   const updatedCandlesticks = R.map(
     toCandlestick,
-    updatedAtomic,
+    updatedSamples,
   ) as R.NonEmptyArray<Candlestick>;
   const updatedBuckets = R.map(
     (bucket) => ({
@@ -149,7 +132,7 @@ export function addSampleToCandelabra(
   const updatedEternal = reduceCandlesticks(updatedCandlesticks);
 
   return {
-    atomic: updatedAtomic,
+    samples: updatedSamples,
     buckets: updatedBuckets,
     eternal: updatedEternal,
   };

@@ -29,7 +29,7 @@ export type Sample = {
 };
 
 export type Candelabra = {
-  atomic: R.NonEmptyArray<Sample>;
+  samples: R.NonEmptyArray<Sample>;
   buckets: R.NonEmptyArray<Bucket>;
   eternal: Candlestick;
 };
