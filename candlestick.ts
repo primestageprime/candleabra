@@ -1,7 +1,21 @@
 import * as R from "ramda";
 import type { NonEmptyArray } from "npm:@types/ramda@0.30.2";
-import type { Accumulator, Candlestick, SampleTiers } from "./types.d.ts";
-import { getClose, getHigh, getLow, getMean, getOpen } from "./utils.ts";
+import type {
+  Bucket,
+  BucketConfig,
+  Candelabra,
+  Candlestick,
+  Sample,
+} from "./types.d.ts";
+import {
+  getClose,
+  getCloseAt,
+  getHigh,
+  getLow,
+  getMean,
+  getOpen,
+  getOpenAt,
+} from "./utils.ts";
 import {
   fifteenMinuteish,
   fiveMinuteish,
@@ -13,7 +27,8 @@ import {
 import { DateTime } from "luxon";
 
 // Re-export types
-export type { Accumulator, Candlestick };
+export * from "./types.d.ts";
+
 export {
   fifteenMinuteish,
   fiveMinuteish,
@@ -33,207 +48,55 @@ export interface GridData {
   low: string;
 }
 
-export function observeCandlestick(
+export const reduceCandlesticks: (
+  list: NonEmptyArray<Candlestick>,
+) => Candlestick = R.applySpec<Candlestick>({
+  open: getOpen,
+  close: getClose,
+  high: getHigh,
+  low: getLow,
+  mean: getMean,
+  openAt: getOpenAt,
+  closeAt: getCloseAt,
+});
+
+export const toCandlestick: (sample: Sample) => Candlestick = (sample) => {
+  return {
+    open: sample.value,
+    close: sample.value,
+    high: sample.value,
+    low: sample.value,
+    mean: sample.value,
+    openAt: sample.dateTime,
+    closeAt: sample.dateTime,
+  };
+};
+
+export const toBucket = (
+  bucketConfig: BucketConfig,
   candlestick: Candlestick,
-  startTime?: string,
-  endTime?: string,
-): GridData {
+) => {
   return {
-    start: startTime || "N/A",
-    duration: "1m", // You can make this configurable
-    end: endTime || "N/A",
-    open: candlestick.open.toString(),
-    mean: candlestick.mean.toString(),
-    close: candlestick.close.toString(),
-    low: candlestick.low.toString(),
+    ...bucketConfig,
+    candlesticks: [reduceCandlesticks([candlestick])],
   };
+};
+export function toSample(value: number, dateTime: DateTime): Sample {
+  return { dateTime, value };
 }
 
-/**
- * Updates the one-sample candlesticks in the accumulator with a new value
- */
-export function updateAtomicSampleCandlesticks(
-  accumulator: Accumulator | null,
-  value: number,
-  pruningCount: number,
-): Accumulator {
-  const newCandlestick = {
-    open: value,
-    close: value,
-    high: value,
-    low: value,
-    mean: value,
-    openAt: DateTime.now(),
-    closeAt: DateTime.now(),
-  };
-
-  if (!accumulator) {
-    return {
-      [SMALLEST_GRANULARITY]: [newCandlestick],
-      [LARGEST_GRANULARITY]: [newCandlestick],
-    };
-  }
-
+export function toCandelabra(
+  sample: Sample,
+  bucketConfigs: R.NonEmptyArray<BucketConfig>,
+): Candelabra {
+  const initialCandlestick: Candlestick = toCandlestick(sample);
+  const buckets: R.NonEmptyArray<Bucket> = R.map(
+    (bucketConfig) => toBucket(bucketConfig, initialCandlestick),
+    bucketConfigs,
+  ) as R.NonEmptyArray<Bucket>;
   return {
-    ...accumulator,
-    [SMALLEST_GRANULARITY]: R.isEmpty(accumulator[SMALLEST_GRANULARITY])
-      ? [newCandlestick]
-      : R.takeLast(pruningCount, [
-        ...accumulator[SMALLEST_GRANULARITY],
-        newCandlestick,
-      ]) as R.NonEmptyArray<Candlestick>,
-    [LARGEST_GRANULARITY]: R.isEmpty(accumulator[LARGEST_GRANULARITY])
-      ? [newCandlestick]
-      : R.takeLast(pruningCount, [
-        ...accumulator[LARGEST_GRANULARITY],
-        newCandlestick,
-      ]) as R.NonEmptyArray<Candlestick>,
-  };
-}
-
-/**
- * Updates the all-samples candlestick with a new value
- */
-export const updateAllSamplesCandlestick =
-  (largestTierGranularity: keyof Accumulator) =>
-  (accumulator: Accumulator): Accumulator => {
-    const samples: R.NonEmptyArray<Candlestick> =
-      accumulator[largestTierGranularity];
-    const result: R.NonEmptyArray<Candlestick> = [
-      toCandlestick([...accumulator[LARGEST_GRANULARITY], ...samples]),
-    ];
-    return {
-      ...accumulator,
-      [LARGEST_GRANULARITY]: result,
-    };
-  };
-
-export const selector =
-  (granularity: string, lastCount: number) =>
-  (acc: Accumulator): R.NonEmptyArray<Candlestick> => {
-    const samples = acc[granularity];
-    if (
-      !samples || !Array.isArray(samples) || granularity === LARGEST_GRANULARITY
-    ) {
-      return acc[LARGEST_GRANULARITY];
-    }
-    return R.takeLast(lastCount, samples) as R.NonEmptyArray<Candlestick>;
-  };
-
-export const toCandlestick: (list: NonEmptyArray<Candlestick>) => Candlestick =
-  R.applySpec<Candlestick>({
-    open: getOpen,
-    close: getClose,
-    high: getHigh,
-    low: getLow,
-    mean: getMean,
-  });
-/**
- * Updates the two-sample candlesticks in the accumulator
- */
-export const candlestickMaker =
-  (
-    parentGranularity: string,
-    granularity: string,
-    sampleCount: number,
-    pruningCount: number,
-  ) =>
-  (accumulator: Accumulator): Accumulator => {
-    const selectedCandlesticks = selector(parentGranularity, sampleCount)(
-      accumulator,
-    );
-    const newCandlestick = toCandlestick(selectedCandlesticks);
-    const priorAccumulator: R.NonEmptyArray<Candlestick> =
-      accumulator[granularity];
-    const result: R.NonEmptyArray<Candlestick> = Array.isArray(priorAccumulator)
-      ? [...priorAccumulator, newCandlestick]
-      : [newCandlestick];
-    const samples: R.NonEmptyArray<Candlestick> = pruningCount > 0
-      ? R.takeLast(pruningCount, result) as R.NonEmptyArray<Candlestick>
-      : result;
-    return {
-      ...accumulator,
-      [granularity]: samples,
-    };
-  };
-
-const getLargestTierGranularity = R.pipe<
-  [R.NonEmptyArray<SampleTiers>],
-  SampleTiers,
-  string
->(
-  R.last,
-  R.prop("granularity"),
-);
-
-/**
- * Processes a new value and updates the accumulator
- */
-
-export const makeProcessValue =
-  (sampleTiers: R.NonEmptyArray<SampleTiers>) =>
-  (accumulator: Accumulator | null, value: number): Accumulator => {
-    // Update one-sample candlesticks
-    const smallestTier = R.head(sampleTiers);
-    let updatedAccumulator = updateAtomicSampleCandlesticks(
-      accumulator,
-      value,
-      smallestTier.sampleCount ?? 1,
-    );
-    const defaultPruningCount = 1;
-    let parentGranularity: string = SMALLEST_GRANULARITY;
-    const pairs = R.aperture(2, [...sampleTiers, {
-      granularity: "default",
-      sampleCount: defaultPruningCount,
-    }]);
-    pairs.forEach(
-      ([{ granularity, sampleCount }, { sampleCount: nextSampleCount }]) => {
-        const pruningCount = nextSampleCount || defaultPruningCount;
-        updatedAccumulator = candlestickMaker(
-          parentGranularity,
-          granularity,
-          sampleCount,
-          pruningCount,
-        )(updatedAccumulator);
-        parentGranularity = granularity;
-      },
-    );
-
-    // Update all-samples candlestick
-    return updateAllSamplesCandlestick(getLargestTierGranularity(sampleTiers))(
-      updatedAccumulator,
-    );
-  };
-
-export const processValueTwoFive: (
-  accumulator: Accumulator | null,
-  value: number,
-) => Accumulator = makeProcessValue([{
-  granularity: "samplesOf2",
-  sampleCount: 2,
-}, { granularity: "samplesOf5", sampleCount: 5 }]);
-
-export const processValueTimeishSegments: (
-  accumulator: Accumulator | null,
-  value: number,
-) => Accumulator = makeProcessValue([
-  { granularity: "minuteish", sampleCount: minuteish },
-  { granularity: "fiveMinuteish", sampleCount: fiveMinuteish },
-  { granularity: "fifteenMinuteish", sampleCount: fifteenMinuteish },
-  { granularity: "hourish", sampleCount: hourish },
-]);
-
-export function toAtomicCandlestick(
-  value: number,
-  dateTime: DateTime,
-): Candlestick {
-  return {
-    open: value,
-    close: value,
-    high: value,
-    low: value,
-    mean: value,
-    openAt: dateTime,
-    closeAt: dateTime,
+    atomic: [sample],
+    buckets: buckets,
+    eternal: initialCandlestick,
   };
 }

@@ -1,6 +1,5 @@
-import type {NonEmptyArray} from "npm:@types/ramda@0.30.2"
-import { SMALLEST_GRANULARITY, LARGEST_GRANULARITY } from "./constants.ts"
 import { DateTime } from "luxon";
+import type { Duration } from "luxon";
 
 /**
  * Represents a candlestick with open, close, high, and low values
@@ -13,19 +12,24 @@ export type Candlestick = {
   mean: number;
   openAt: DateTime;
   closeAt: DateTime;
-}
+};
 
-/**
- * Represents an accumulator that holds candlesticks for different time windows
- */
+export type BucketConfig = {
+  name: string;
+  bucketDuration: Duration;
+};
 
-export type Accumulator = {
-  [SMALLEST_GRANULARITY]: NonEmptyArray<Candlestick>;
-  [LARGEST_GRANULARITY]: NonEmptyArray<Candlestick>;
-  [key: string]: NonEmptyArray<Candlestick>;
-}
+export type Bucket = BucketConfig & {
+  candlesticks: R.NonEmptyArray<Candlestick>;
+};
 
-export type SampleTiers = {
-  granularity: string;
-  sampleCount: number;
-}
+export type Sample = {
+  dateTime: DateTime;
+  value: number;
+};
+
+export type Candelabra = {
+  atomic: R.NonEmptyArray<Sample>;
+  buckets: R.NonEmptyArray<Bucket>;
+  eternal: Candlestick;
+};
