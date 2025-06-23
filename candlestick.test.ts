@@ -54,6 +54,30 @@ Deno.test("toCandelabra", async (t) => {
   });
 });
 
+Deno.test("reduceCandlesticks", async (t) => {
+  await t.step(
+    "reduceCandlesticks should handle out of order candlesticks",
+    () => {
+      const oldSample = toSample(1, testTime.minus(oneMinute));
+      const newSample = toSample(2, testTime);
+      const actual = reduceCandlesticks([
+        toCandlestick(newSample),
+        toCandlestick(oldSample),
+      ]);
+      const expected = {
+        open: 1,
+        close: 2,
+        high: 2,
+        low: 1,
+        mean: 1.5,
+        openAt: oldSample.dateTime,
+        closeAt: newSample.dateTime,
+      };
+      assertEquals(actual, expected);
+    },
+  );
+});
+
 Deno.test("addSampleToCandelabra", async (t) => {
   await t.step(
     "addSampleToCandelabra should be able to add a sample to a candelabra",
@@ -146,30 +170,6 @@ Deno.test("addSampleToCandelabra", async (t) => {
           },
         ],
         eternal: oldCandlestick,
-      };
-      assertEquals(actual, expected);
-    },
-  );
-});
-
-Deno.test("reduceCandlesticks", async (t) => {
-  await t.step(
-    "reduceCandlesticks should handle out of order candlesticks",
-    () => {
-      const oldSample = toSample(1, testTime.minus(oneMinute));
-      const newSample = toSample(2, testTime);
-      const actual = reduceCandlesticks([
-        toCandlestick(newSample),
-        toCandlestick(oldSample),
-      ]);
-      const expected = {
-        open: 1,
-        close: 2,
-        high: 2,
-        low: 1,
-        mean: 1.5,
-        openAt: oldSample.dateTime,
-        closeAt: newSample.dateTime,
       };
       assertEquals(actual, expected);
     },
