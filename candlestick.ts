@@ -100,3 +100,34 @@ export function toCandelabra(
     eternal: initialCandlestick,
   };
 }
+
+export function addSampleToCandelabra(
+  sample: Sample,
+  candelabra: Candelabra,
+): Candelabra {
+  const newCandlestick = toCandlestick(sample);
+  const updatedAtomic = R.append(sample, candelabra.atomic) as R.NonEmptyArray<
+    Sample
+  >;
+
+  const updatedBuckets = R.map(
+    (bucket) => ({
+      ...bucket,
+      candlesticks: [
+        reduceCandlesticks([...bucket.candlesticks, newCandlestick]),
+      ] as R.NonEmptyArray<Candlestick>,
+    }),
+    candelabra.buckets,
+  ) as R.NonEmptyArray<Bucket>;
+
+  const updatedEternal = reduceCandlesticks([
+    candelabra.eternal,
+    newCandlestick,
+  ]);
+
+  return {
+    atomic: updatedAtomic,
+    buckets: updatedBuckets,
+    eternal: updatedEternal,
+  };
+}
