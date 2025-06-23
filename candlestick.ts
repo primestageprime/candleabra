@@ -147,21 +147,19 @@ export function addSampleToCandelabra(
     sortedSamples,
   ) as R.NonEmptyArray<Candlestick>;
 
+  const reducedCandlesticks = reduceCandlesticks(updatedCandlesticks);
+
   const updatedBuckets = R.map(
     (bucket) => ({
       ...bucket,
-      candlesticks: [
-        reduceCandlesticks(updatedCandlesticks),
-      ] as R.NonEmptyArray<Candlestick>,
+      candlesticks: [reducedCandlesticks] as R.NonEmptyArray<Candlestick>,
     }),
     candelabra.buckets,
   ) as R.NonEmptyArray<Bucket>;
 
-  const updatedEternal = reduceCandlesticks(updatedCandlesticks);
-
   return {
     samples: sortedSamples,
     buckets: updatedBuckets,
-    eternal: updatedEternal,
+    eternal: reducedCandlesticks,
   };
 }
