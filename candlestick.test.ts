@@ -13,14 +13,12 @@ import type { BucketConfig, Candelabra, Candlestick } from "./types.d.ts";
 const testTime = DateTime.fromISO("2025-06-20T12:00:00.000Z");
 const tPlusOneMs = testTime.plus({ milliseconds: 1 });
 
-const oneMinute = Duration.fromISO("PT1M");
-const fiveMinutes = Duration.fromISO("PT5M");
-const fifteenMinutes = Duration.fromISO("PT15M");
-
 const defaultSample = toSample(1, testTime);
 const defaultSampleCandlestick = toCandlestick(defaultSample);
+
+const oneMinute = Duration.fromISO("PT1M");
 const oneMinuteBucket = { name: "1m", bucketDuration: oneMinute };
-const defaultCandelabra = toCandelabra(defaultSample, [
+const oneMinuteCandelabra = toCandelabra(defaultSample, [
   oneMinuteBucket,
 ]);
 
@@ -83,7 +81,7 @@ Deno.test("addSampleToCandelabra", async (t) => {
     "addSampleToCandelabra should be able to add a sample to a candelabra",
     () => {
       const newSample = toSample(1, tPlusOneMs);
-      const actual = addSampleToCandelabra(newSample, defaultCandelabra);
+      const actual = addSampleToCandelabra(newSample, oneMinuteCandelabra);
       const sampleCandlestick = toCandlestick(newSample);
       const expectedCandlestick = reduceCandlesticks([
         defaultSampleCandlestick,
@@ -109,8 +107,8 @@ Deno.test("addSampleToCandelabra", async (t) => {
   await t.step(
     "addSampleToCandelabra should be idempotent when adding the same sample",
     () => {
-      const actual = addSampleToCandelabra(defaultSample, defaultCandelabra);
-      const expected = defaultCandelabra;
+      const actual = addSampleToCandelabra(defaultSample, oneMinuteCandelabra);
+      const expected = oneMinuteCandelabra;
       assertEquals(actual, expected);
     },
   );
@@ -119,7 +117,7 @@ Deno.test("addSampleToCandelabra", async (t) => {
     "addSampleToCandelabra should handle samples with identical dateTime but different value as an upserts",
     () => {
       const sample = toSample(2, testTime);
-      const actual = addSampleToCandelabra(sample, defaultCandelabra);
+      const actual = addSampleToCandelabra(sample, oneMinuteCandelabra);
       const sampleCandlestick = toCandlestick(sample);
       const expected = {
         samples: [sample],
@@ -141,8 +139,8 @@ Deno.test("addSampleToCandelabra", async (t) => {
     () => {
       const tooOld = testTime.minus(oneMinute).minus({ milliseconds: 1 });
       const tooOldSample = toSample(1, tooOld);
-      const actual = addSampleToCandelabra(tooOldSample, defaultCandelabra);
-      const expected = defaultCandelabra;
+      const actual = addSampleToCandelabra(tooOldSample, oneMinuteCandelabra);
+      const expected = oneMinuteCandelabra;
       assertEquals(actual, expected);
     },
   );
@@ -158,7 +156,7 @@ Deno.test("addSampleToCandelabra", async (t) => {
       ]);
       const actual = addSampleToCandelabra(
         oldSample,
-        defaultCandelabra,
+        oneMinuteCandelabra,
       );
       const expected = {
         samples: [oldSample, defaultSample],
@@ -170,6 +168,129 @@ Deno.test("addSampleToCandelabra", async (t) => {
           },
         ],
         eternal: oldCandlestick,
+      };
+      assertEquals(actual, expected);
+    },
+  );
+
+  await t.step(
+    "addSampleToCandelabra, when given a sample with a datetime the distance of which from the oldest sample is greater than the duration of the first bucket, should split the bucket's candlesticks into two: one with the samples before the cutoff time, and one with the samples after the cutoff time. It should also prune the samples to only contain those that are newer than the cutoff time.",
+    () => {
+      const newSample = toSample(4, testTime.plus(oneMinute));
+      const actual = addSampleToCandelabra(newSample, oneMinuteCandelabra);
+      const oldCandlestick = {
+        open: 1,
+        close: 1,
+        high: 1,
+        low: 1,
+        mean: 1,
+        openAt: testTime,
+        closeAt: testTime.plus(oneMinute),
+      };
+      const newCandlestick = {
+        open: 4,
+        close: 4,
+        high: 4,
+        low: 4,
+        mean: 4,
+        openAt: testTime.plus(oneMinute),
+        closeAt: newSample.dateTime,
+      };
+      const expected = {
+        samples: [newSample],
+        buckets: [
+          {
+            name: "1m",
+            bucketDuration: oneMinute,
+            candlesticks: [oldCandlestick, newCandlestick],
+          },
+        ],
+        eternal: {
+          open: 1,
+          close: 4,
+          high: 4,
+          low: 1,
+          mean: 2.5,
+          openAt: testTime,
+          closeAt: testTime.plus(oneMinute),
+        },
+      };
+      assertEquals(actual, expected);
+    },
+  );
+
+  await t.step(
+    "addSampleToCandelabra, if adding to a bucket that is still within the active duration, should set the closeAt of that bucket's candlestick to the new sample's datetime",
+    () => {
+      const newSample = toSample(2, testTime.plus({ seconds: 30 }));
+      const actual = addSampleToCandelabra(newSample, oneMinuteCandelabra);
+      const newCandlestick = {
+        open: 2,
+        close: 2,
+        high: 2,
+        low: 2,
+        mean: 2,
+        openAt: testTime,
+        closeAt: newSample.dateTime,
+      };
+      const expected = {
+        samples: [newSample],
+        buckets: [
+          {
+            name: "1m",
+            bucketDuration: oneMinute,
+            candlesticks: [newCandlestick],
+          },
+        ],
+        eternal: newCandlestick,
+      };
+      assertEquals(actual, expected);
+    },
+  );
+
+  await t.step(
+    "addSampleToCandelabra: if a sample is recieved that skips an entire bucket's duration, should generate the correct number of candlesticks in that bucket using existing data",
+    () => {
+      const newSample = toSample(
+        2,
+        testTime.plus(oneMinute).plus({ milliseconds: 1 }),
+      );
+      const actual = addSampleToCandelabra(newSample, oneMinuteCandelabra);
+      const expectedOldCandlestick = {
+        open: 1,
+        close: 1,
+        high: 1,
+        low: 1,
+        mean: 1,
+        openAt: testTime,
+        closeAt: testTime.plus(oneMinute),
+      };
+      const expectedNewCandlestick = {
+        open: 2,
+        close: 2,
+        high: 2,
+        low: 2,
+        mean: 2,
+        openAt: testTime.plus(oneMinute),
+        closeAt: newSample.dateTime,
+      };
+      const expectedEternalCandlestick = reduceCandlesticks([
+        expectedOldCandlestick,
+        expectedNewCandlestick,
+      ]);
+      const expected = {
+        samples: [newSample],
+        buckets: [
+          {
+            name: "1m",
+            bucketDuration: oneMinute,
+            candlesticks: [
+              expectedOldCandlestick,
+              expectedNewCandlestick,
+            ],
+          },
+        ],
+        eternal: expectedEternalCandlestick,
       };
       assertEquals(actual, expected);
     },
