@@ -120,49 +120,33 @@ export function addSampleToCandelabra(
     return candelabra;
   }
 
-  // Check if a sample with the same dateTime exists
-  const hasSameDateTime = R.any(
+  // Check if a sample with the same dateTime exists and find its index
+  const existingIndex = R.findIndex(
     (existingSample) => existingSample.dateTime.equals(sample.dateTime),
     candelabra.samples,
   );
 
-  let updatedSamples: R.NonEmptyArray<Sample>;
-  if (hasSameDateTime) {
-    // Replace the sample with the same dateTime (upsert)
-    const replaced = R.map(
-      (existingSample) =>
-        existingSample.dateTime.equals(sample.dateTime)
-          ? sample
-          : existingSample,
+  // Update samples based on whether we need to upsert or append
+  const updatedSamples = existingIndex >= 0
+    ? R.adjust(
+      existingIndex,
+      () => sample,
       candelabra.samples,
-    );
-    // Remove duplicates in case there are multiple with the same dateTime (shouldn't happen, but for safety)
-    const unique = R.uniqBy((s: Sample) => s.dateTime.toISO(), replaced);
-    updatedSamples = unique as R.NonEmptyArray<Sample>;
-  } else {
-    // Otherwise, append as before
-    updatedSamples = R.append(sample, candelabra.samples) as R.NonEmptyArray<
-      Sample
-    >;
-  }
+    ) as R.NonEmptyArray<Sample>
+    : R.append(sample, candelabra.samples) as R.NonEmptyArray<Sample>;
 
   // Sort samples by datetime (ascending, oldest first) for aggregates
-  const sortedSamplesAsc = R.sort(
+  const sortedSamples = R.sort(
     (a: Sample, b: Sample) => a.dateTime.toMillis() - b.dateTime.toMillis(),
     updatedSamples,
   ) as R.NonEmptyArray<Sample>;
 
-  // Sort samples by datetime (descending, newest first) for the returned object
-  const sortedSamplesDesc = R.sort(
-    (a: Sample, b: Sample) => b.dateTime.toMillis() - a.dateTime.toMillis(),
-    updatedSamples,
-  ) as R.NonEmptyArray<Sample>;
-
-  // Recalculate all candlesticks from sortedSamplesAsc
+  // Recalculate all candlesticks from sortedSamples
   const updatedCandlesticks = R.map(
     toCandlestick,
-    sortedSamplesAsc,
+    sortedSamples,
   ) as R.NonEmptyArray<Candlestick>;
+
   const updatedBuckets = R.map(
     (bucket) => ({
       ...bucket,
@@ -176,7 +160,7 @@ export function addSampleToCandelabra(
   const updatedEternal = reduceCandlesticks(updatedCandlesticks);
 
   return {
-    samples: sortedSamplesAsc,
+    samples: sortedSamples,
     buckets: updatedBuckets,
     eternal: updatedEternal,
   };
