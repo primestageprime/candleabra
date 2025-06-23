@@ -64,41 +64,84 @@ Deno.test("Candlestick", async (t) => {
     assertEquals(actual, expected);
   });
 
-  await t.step("should be able to add a sample to a candelabra", () => {
-    const sample = toSample(1, tPlusOneMs);
-    const actual = addSampleToCandelabra(sample, defaultCandelabra);
-    const sampleCandlestick = toCandlestick(sample);
-    const expectedCandlestick = reduceCandlesticks([
-      defaultSampleCandlestick,
-      sampleCandlestick,
-    ]);
-    const expected = {
-      atomic: [defaultSample, sample],
-      buckets: [
-        {
-          name: "1m",
-          bucketDuration: oneMinute,
-          candlesticks: [
-            expectedCandlestick,
-          ],
-        },
-        {
-          name: "5m",
-          bucketDuration: fiveMinutes,
-          candlesticks: [
-            expectedCandlestick,
-          ],
-        },
-        {
-          name: "15m",
-          bucketDuration: fifteenMinutes,
-          candlesticks: [
-            expectedCandlestick,
-          ],
-        },
-      ],
-      eternal: expectedCandlestick,
-    };
-    assertEquals(actual, expected);
-  });
+  await t.step(
+    "addSampleToCandelabra should be able to add a sample to a candelabra",
+    () => {
+      const sample = toSample(1, tPlusOneMs);
+      const actual = addSampleToCandelabra(sample, defaultCandelabra);
+      const sampleCandlestick = toCandlestick(sample);
+      const expectedCandlestick = reduceCandlesticks([
+        defaultSampleCandlestick,
+        sampleCandlestick,
+      ]);
+      const expected = {
+        atomic: [defaultSample, sample],
+        buckets: [
+          {
+            name: "1m",
+            bucketDuration: oneMinute,
+            candlesticks: [
+              expectedCandlestick,
+            ],
+          },
+          {
+            name: "5m",
+            bucketDuration: fiveMinutes,
+            candlesticks: [
+              expectedCandlestick,
+            ],
+          },
+          {
+            name: "15m",
+            bucketDuration: fifteenMinutes,
+            candlesticks: [
+              expectedCandlestick,
+            ],
+          },
+        ],
+        eternal: expectedCandlestick,
+      };
+      assertEquals(actual, expected);
+    },
+  );
+
+  await t.step(
+    "addSampleToCandelabra should be idempotent when adding the same sample",
+    () => {
+      const actual = addSampleToCandelabra(defaultSample, defaultCandelabra);
+      const expected = defaultCandelabra;
+      assertEquals(actual, expected);
+    },
+  );
+
+  await t.step(
+    "addSampleToCandelabra should handle samples with identical dateTime but different value as an upserts",
+    () => {
+      const sample = toSample(2, testTime);
+      const actual = addSampleToCandelabra(sample, defaultCandelabra);
+      const sampleCandlestick = toCandlestick(sample);
+      const expected = {
+        atomic: [sample],
+        buckets: [
+          {
+            name: "1m",
+            bucketDuration: oneMinute,
+            candlesticks: [sampleCandlestick],
+          },
+          {
+            name: "5m",
+            bucketDuration: fiveMinutes,
+            candlesticks: [sampleCandlestick],
+          },
+          {
+            name: "15m",
+            bucketDuration: fifteenMinutes,
+            candlesticks: [sampleCandlestick],
+          },
+        ],
+        eternal: sampleCandlestick,
+      };
+      assertEquals(actual, expected);
+    },
+  );
 });

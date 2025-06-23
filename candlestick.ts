@@ -105,25 +105,48 @@ export function addSampleToCandelabra(
   sample: Sample,
   candelabra: Candelabra,
 ): Candelabra {
-  const newCandlestick = toCandlestick(sample);
-  const updatedAtomic = R.append(sample, candelabra.atomic) as R.NonEmptyArray<
-    Sample
-  >;
+  // Check if a sample with the same dateTime exists
+  const hasSameDateTime = R.any(
+    (existingSample) => existingSample.dateTime.equals(sample.dateTime),
+    candelabra.atomic,
+  );
 
+  let updatedAtomic: R.NonEmptyArray<Sample>;
+  if (hasSameDateTime) {
+    // Replace the sample with the same dateTime (upsert)
+    const replaced = R.map(
+      (existingSample) =>
+        existingSample.dateTime.equals(sample.dateTime)
+          ? sample
+          : existingSample,
+      candelabra.atomic,
+    );
+    // Remove duplicates in case there are multiple with the same dateTime (shouldn't happen, but for safety)
+    const unique = R.uniqBy((s: Sample) => s.dateTime.toISO(), replaced);
+    updatedAtomic = unique as R.NonEmptyArray<Sample>;
+  } else {
+    // Otherwise, append as before
+    updatedAtomic = R.append(sample, candelabra.atomic) as R.NonEmptyArray<
+      Sample
+    >;
+  }
+
+  // Recalculate all candlesticks from updatedAtomic
+  const updatedCandlesticks = R.map(
+    toCandlestick,
+    updatedAtomic,
+  ) as R.NonEmptyArray<Candlestick>;
   const updatedBuckets = R.map(
     (bucket) => ({
       ...bucket,
       candlesticks: [
-        reduceCandlesticks([...bucket.candlesticks, newCandlestick]),
+        reduceCandlesticks(updatedCandlesticks),
       ] as R.NonEmptyArray<Candlestick>,
     }),
     candelabra.buckets,
   ) as R.NonEmptyArray<Bucket>;
 
-  const updatedEternal = reduceCandlesticks([
-    candelabra.eternal,
-    newCandlestick,
-  ]);
+  const updatedEternal = reduceCandlesticks(updatedCandlesticks);
 
   return {
     atomic: updatedAtomic,
