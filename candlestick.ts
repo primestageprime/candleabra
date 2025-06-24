@@ -93,6 +93,7 @@ export function addSampleToCandelabra(
   sample: Sample,
   candelabra: Candelabra,
 ): Candelabra {
+  console.log("================addSampleToCandelabra", { sample, candelabra });
   // Get the latest sample's datetime
   const latestSample = R.last(candelabra.samples);
   if (!latestSample) {
@@ -111,8 +112,7 @@ export function addSampleToCandelabra(
   }
 
   // Get the first tier's duration (smallest granularity)
-  const firstTier = candelabra.tiers[0];
-  const firstTierDuration = firstTier.duration;
+  const firstTierDuration = candelabra.tiers[0].duration;
 
   // Calculate the cutoff time: latest sample time minus first tier duration
   const cutoffTime = latestSample.dateTime.minus(firstTierDuration);
@@ -148,9 +148,9 @@ export function addSampleToCandelabra(
     sortedSamples,
   );
 
-  const newFirstTier = tiers[0];
-  const myFirstTierDuration = newFirstTier.duration;
-  const sampleCutoff = newFirstTier.current.openAt;
+  console.log("tiers", tiers);
+  const firstTier = tiers[0];
+  const sampleCutoff = firstTier.history[0]?.openAt.plus(firstTier.duration);
   const samples = R.dropWhile(
     (sample) => sample.dateTime < sampleCutoff,
     sortedSamples,
@@ -187,11 +187,12 @@ export function processSamples(
   const [thisTier, ...restTiers] = tiers;
   const newestSample = R.last(samples);
   const newestSampleCandlestick = toCandlestick(newestSample);
+  const oldestSample = R.head(samples);
 
   // does the distance between the openAt of the oldest candlestick in this tier's history and the newest sample candlestick's closeAt exceed this tier's duration?
   const currentTierDuration = thisTier.duration;
   const oldestCandlestick = R.head(thisTier.history);
-  const openAt = oldestCandlestick?.openAt || newestSample.dateTime;
+  const openAt = oldestCandlestick?.openAt || oldestSample.dateTime;
   const distance = newestSample.dateTime.diff(openAt, "milliseconds")
     .as(
       "milliseconds",
@@ -214,13 +215,17 @@ export function processSamples(
       // then return this tier with the current candlestick
       // and set newest sample candlestick as eternal
       // and set the samples to just the newest sample
+      const eternal = reduceCandlesticks([
+        thisTier.current,
+        newestSampleCandlestick,
+      ]);
       return {
         tiers: [{
           ...thisTier,
-          history: [], // don't need any history b/c eternal candlestick will serve as history
+          history: [thisTier.current],
           current: newestSampleCandlestick,
         }],
-        eternal: newestSampleCandlestick,
+        eternal,
       };
     } else {
       console.log("branch, new bucket");
@@ -274,13 +279,6 @@ export function processSamples(
       };
     }
   }
-}
-
-export function cascadeTiers(
-  tiers: R.NonEmptyArray<Tier>,
-  candlestick: Candlestick,
-): R.NonEmptyArray<Tier> {
-  return tiers;
 }
 
 export function addSamplesToCandelabra(
