@@ -20,7 +20,8 @@ export type BucketConfig = {
 };
 
 export type Bucket = BucketConfig & {
-  candlesticks: R.NonEmptyArray<Candlestick>;
+  history: Candlestick[];
+  current: Candlestick;
 };
 
 export type Sample = {

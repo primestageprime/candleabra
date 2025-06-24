@@ -62,10 +62,11 @@ export const toCandlestick: (sample: Sample) => Candlestick = (sample) => {
 export const toBucket = (
   bucketConfig: BucketConfig,
   candlestick: Candlestick,
-) => {
+): Bucket => {
   return {
     ...bucketConfig,
-    candlesticks: [reduceCandlesticks([candlestick])],
+    history: [],
+    current: candlestick,
   };
 };
 export function toSample(value: number, dateTime: DateTime): Sample {
@@ -101,7 +102,7 @@ export function addSampleToCandelabra(
       buckets: R.map(
         (bucket) => ({
           ...bucket,
-          candlesticks: [toCandlestick(sample)] as R.NonEmptyArray<Candlestick>,
+          current: toCandlestick(sample),
         }),
         candelabra.buckets,
       ) as R.NonEmptyArray<Bucket>,
@@ -152,7 +153,8 @@ export function addSampleToCandelabra(
   const updatedBuckets = R.map(
     (bucket) => ({
       ...bucket,
-      candlesticks: [reducedCandlesticks] as R.NonEmptyArray<Candlestick>,
+      history: bucket.history,
+      current: reducedCandlesticks,
     }),
     candelabra.buckets,
   ) as R.NonEmptyArray<Bucket>;
