@@ -143,12 +143,12 @@ export function addSampleToCandelabra(
     updatedSamples,
   ) as R.NonEmptyArray<Sample>;
 
-  // Recalculate current candlestick from sortedSamples
-  const currentCandlestick = samplesToCandlestick(sortedSamples);
+  const newestSample = R.last(sortedSamples);
+  const newestCandlestick = toCandlestick(newestSample);
 
-  const { tiers, longestTierCandlestick } = cascadeCurrentCandlestick(
+  const { tiers, longestTierCandlestick } = processCurrentCandlestick(
     candelabra.tiers,
-    currentCandlestick,
+    newestCandlestick,
   );
 
   return {
@@ -169,14 +169,14 @@ export function samplesToCandlestick(
   return reduceCandlesticks(updatedCandlesticks);
 }
 
-export function cascadeCurrentCandlestick(
+export function processCurrentCandlestick(
   tiers: R.NonEmptyArray<Tier>,
   currentCandlestick: Candlestick,
 ): { tiers: R.NonEmptyArray<Tier>; longestTierCandlestick: Candlestick } {
-  const [currentTier, ...restTiers] = tiers;
-  // does the distance between the oldest candlestick in my tier's history and the current candlestick's closeAt exceed my duration?
-  const currentTierDuration = currentTier.duration;
-  const oldestCandlestick = R.head(currentTier.history);
+  const [thisTier, ...restTiers] = tiers;
+  // does the distance between the openAt of the oldest candlestick in this tier's history and the current candlestick's closeAt exceed this tier's duration?
+  const currentTierDuration = thisTier.duration;
+  const oldestCandlestick = R.head(thisTier.history);
   const openAt = oldestCandlestick?.openAt || currentCandlestick.openAt;
   const distance = currentCandlestick.closeAt.diff(openAt, "milliseconds").as(
     "milliseconds",
@@ -185,26 +185,29 @@ export function cascadeCurrentCandlestick(
     distance > currentTierDuration.as("milliseconds");
   if (distanceExceedsDuration) {
     if (R.isEmpty(restTiers)) {
-      // base case / leaf node; no other tiers to process
-      const longestTierCandlestick = R.isEmpty(currentTier.history)
+      // if the newest candlestick should result in the current candlestick being historized
+      // and there are no tiers to cascade to
+      // then return this tier with the current candlestick
+      // (because the eternal candlestick will serve as the "history")
+      const tierHistoryCandlestick = R.isEmpty(thisTier.history)
         ? currentCandlestick
-        : reduceCandlesticks(currentTier.history as NonEmptyArray<Candlestick>);
+        : reduceCandlesticks(thisTier.history as NonEmptyArray<Candlestick>);
       return {
         tiers: [{
-          ...currentTier,
+          ...thisTier,
           current: currentCandlestick,
-          history: [],
         }],
-        longestTierCandlestick,
+        longestTierCandlestick: tierHistoryCandlestick,
       };
     } else {
-      // other tiers to process
-      const recursed = cascadeCurrentCandlestick(
+      // if the newest candlestick should result in the current candlestick being historized
+      // and there are other tiers to cascade to, then recurse into the rest of the tiers
+      const recursed = processCurrentCandlestick(
         restTiers as NonEmptyArray<Tier>,
         currentCandlestick,
       );
       const newCurrentTier = {
-        ...currentTier,
+        ...thisTier,
         history: [],
         current: currentCandlestick,
       };
@@ -214,28 +217,33 @@ export function cascadeCurrentCandlestick(
       };
     }
   } else {
-    // no other tiers to process
     if (R.isEmpty(restTiers)) {
+      // if the newest candlestick should not result in the current candlestick being historized
+      // and there are no other tiers to cascade to
+      // then just update the new current candlestick
       const newCurrentCandlestick = reduceCandlesticks([
-        currentTier.current,
+        thisTier.current,
         currentCandlestick,
       ]);
-      const newCurrentTier = { ...currentTier, current: newCurrentCandlestick };
+      const newCurrentTier = { ...thisTier, current: newCurrentCandlestick };
       return {
         tiers: [newCurrentTier],
         longestTierCandlestick: newCurrentCandlestick,
       };
     } else {
-      // other tiers to process
-      const recursed = cascadeCurrentCandlestick(
+      // if the newest candlestick should not result in the current candlestick being historized
+      // and there are other tiers to cascade to
+      // then just update the new current candlestick and process the rest of the tiers
+      // (which should also just update their current candlesticks)
+      const recursed = processCurrentCandlestick(
         restTiers as NonEmptyArray<Tier>,
         currentCandlestick,
       );
       const newCurrentCandlestick = reduceCandlesticks([
-        currentTier.current,
+        thisTier.current,
         currentCandlestick,
       ]);
-      const newCurrentTier = { ...currentTier, current: newCurrentCandlestick };
+      const newCurrentTier = { ...thisTier, current: newCurrentCandlestick };
       return {
         tiers: [newCurrentTier, ...recursed.tiers],
         longestTierCandlestick: recursed.longestTierCandlestick,

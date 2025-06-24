@@ -245,7 +245,8 @@ Deno.test("addSampleToCandelabra", async (t) => {
     () => {
       const newSample = toSample(2, testTime.plus({ seconds: 30 }));
       const actual = addSampleToCandelabra(newSample, oneMinuteCandelabra);
-      const currentCandlestick = {
+
+      const expectedCandlestick = {
         open: 1,
         close: 2,
         high: 2,
@@ -255,17 +256,18 @@ Deno.test("addSampleToCandelabra", async (t) => {
         closeAt: newSample.dateTime,
       };
       const expected = {
-        samples: [defaultSample, newSample] as R.NonEmptyArray<Sample>,
+        samples: [defaultSample, newSample],
         tiers: [
           {
             name: "1m",
             duration: oneMinute,
             history: [],
-            current: currentCandlestick,
+            current: expectedCandlestick,
           },
         ] as R.NonEmptyArray<Tier>,
-        eternal: currentCandlestick,
+        eternal: expectedCandlestick,
       };
+
       assertEquals(actual, expected);
     },
   );
