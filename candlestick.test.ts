@@ -195,7 +195,6 @@ Deno.test("addSampleToCandelabra", async (t) => {
         firstMinCandlestick,
         secondMinCandlestick,
       ]);
-      console.log("actual", actual);
       const expected = {
         samples: [secondMinSample] as R.NonEmptyArray<Sample>,
         tiers: [
@@ -307,3 +306,57 @@ Deno.test("addSampleToCandelabra", async (t) => {
     },
   );
 });
+
+Deno.test(
+  "addSampleToCandelabra, when given a sample that's after the first bucket's current candlestick, should add the old candlestick to history and create a new current candlestick with the new sample. It should also prune the samples to only contain those that are newer than the oldest sample in the new current candlestick.",
+  () => {
+    const firstMinTime = testTime.plus({ seconds: 30 });
+    const firstMinSample = toSample(4, firstMinTime); // this sample should fall within the 1m bucket's first candlestick
+
+    const secondMinTime = testTime.plus({ seconds: 61 });
+    const secondMinSample = toSample(5, secondMinTime); // this sample should fall outside the 1m bucket's first candlestick
+
+    const samples: R.NonEmptyArray<Sample> = [
+      firstMinSample,
+      secondMinSample,
+    ];
+
+    const actual = addSamplesToCandelabra(samples, oneMinuteCandelabra);
+    const firstMinCloseAt = testTime.plus(oneMinute);
+    const firstMinCandlestick = {
+      open: 1,
+      close: 4,
+      high: 4,
+      low: 1,
+      mean: 2.5,
+      openAt: testTime,
+      closeAt: firstMinCloseAt, // candlestick lasts an entire minute because it's no longer active
+    };
+    const secondMinCandlestick = {
+      open: 5,
+      close: 5,
+      high: 5,
+      low: 5,
+      mean: 5,
+      openAt: firstMinCloseAt,
+      closeAt: secondMinTime, // candlestick is active, so closeAt is the last sample's datetime
+    };
+    const eternalCandlestick = reduceCandlesticks([
+      firstMinCandlestick,
+      secondMinCandlestick,
+    ]);
+    const expected = {
+      samples: [secondMinSample] as R.NonEmptyArray<Sample>,
+      tiers: [
+        {
+          name: "1m",
+          duration: oneMinute,
+          history: [], // don't need any history b/c eternal candlestick will serve as history
+          current: secondMinCandlestick,
+        },
+      ] as R.NonEmptyArray<Tier>,
+      eternal: eternalCandlestick,
+    };
+    assertEquals(actual, expected);
+  },
+);

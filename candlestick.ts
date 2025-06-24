@@ -143,16 +143,27 @@ export function addSampleToCandelabra(
     updatedSamples,
   ) as R.NonEmptyArray<Sample>;
 
-  const { tiers, longestTierCandlestick } = processSamples(
+  const { tiers, eternal } = processSamples(
     candelabra.tiers,
     sortedSamples,
   );
 
+  const newFirstTier = tiers[0];
+  const myFirstTierDuration = newFirstTier.duration;
+  const sampleCutoff = newFirstTier.current.openAt;
+  const samples = R.dropWhile(
+    (sample) => sample.dateTime < sampleCutoff,
+    sortedSamples,
+  ) as R.NonEmptyArray<Sample>;
+
+  console.log("sampleCutoff", sampleCutoff);
+  console.log("samples", samples);
+  console.log("candelabra samples", candelabra.samples);
+
   return {
-    ...candelabra,
-    samples: sortedSamples,
+    samples,
     tiers: tiers,
-    eternal: longestTierCandlestick,
+    eternal,
   };
 }
 
@@ -169,7 +180,10 @@ export function samplesToCandlestick(
 export function processSamples(
   tiers: R.NonEmptyArray<Tier>,
   samples: R.NonEmptyArray<Sample>,
-): { tiers: R.NonEmptyArray<Tier>; longestTierCandlestick: Candlestick } {
+): {
+  tiers: R.NonEmptyArray<Tier>;
+  eternal: Candlestick;
+} {
   const [thisTier, ...restTiers] = tiers;
   const newestSample = R.last(samples);
   const newestSampleCandlestick = toCandlestick(newestSample);
@@ -184,26 +198,36 @@ export function processSamples(
     );
   const distanceExceedsDuration =
     distance > currentTierDuration.as("milliseconds");
+  console.log({
+    currentTierDuration,
+    oldestCandlestick,
+    oldestCandlestickOpenAt: oldestCandlestick?.openAt,
+    newestSampleDateTime: newestSample.dateTime,
+    distance,
+    distanceExceedsDuration,
+  });
   if (distanceExceedsDuration) {
     if (R.isEmpty(restTiers)) {
-      // if the newest candlestick should result in the current candlestick being historized
+      console.log("leaf node, new bucket");
+      // if the newest sample should result in the current candlestick being historized
       // and there are no tiers to cascade to
       // then return this tier with the current candlestick
-      // (because the eternal candlestick will serve as the "history")
-      const tierHistoryCandlestick = R.isEmpty(thisTier.history)
-        ? newestSampleCandlestick
-        : reduceCandlesticks(thisTier.history as NonEmptyArray<Candlestick>);
+      // and set newest sample candlestick as eternal
+      // and set the samples to just the newest sample
       return {
         tiers: [{
           ...thisTier,
           history: [], // don't need any history b/c eternal candlestick will serve as history
           current: newestSampleCandlestick,
         }],
-        longestTierCandlestick: tierHistoryCandlestick,
+        eternal: newestSampleCandlestick,
       };
     } else {
-      // if the newest sample candlestick should result in this tier's current candlestick being historized
-      // and there are other tiers to cascade to, then recurse into the rest of the tiers
+      console.log("branch, new bucket");
+      // if the newest sample should result in this tier's current candlestick being historized
+      // and there are other tiers to cascade to
+      // then recurse into the rest of the tiers
+      // and set the samples to just the newest sample
       const recursed = processSamples(
         restTiers as NonEmptyArray<Tier>,
         samples,
@@ -216,25 +240,27 @@ export function processSamples(
       };
       return {
         tiers: [newCurrentTier, ...recursed.tiers],
-        longestTierCandlestick: recursed.longestTierCandlestick,
+        eternal: recursed.eternal,
       };
     }
   } else {
+    console.log("leaf node, no new bucket");
     const newCurrentCandlestick = reduceCandlesticks([
       thisTier.current,
       newestSampleCandlestick,
     ]);
     const newCurrentTier = { ...thisTier, current: newCurrentCandlestick };
     if (R.isEmpty(restTiers)) {
-      // if the newest sample candlestick should not result in this tier's current candlestick being historized
+      // if the newest sample should not result in this tier's current candlestick being historized
       // and there are no other tiers to cascade to
       // then just update the new current candlestick
       return {
         tiers: [newCurrentTier],
-        longestTierCandlestick: newCurrentCandlestick,
+        eternal: newCurrentCandlestick,
       };
     } else {
-      // if the newest sample candlestick should not result in this tier's current candlestick being historized
+      console.log("branch, no new bucket");
+      // if the newest sample should not result in this tier's current candlestick being historized
       // and there are other tiers to cascade to
       // then just update the new current candlestick and process the rest of the tiers
       // (which should also just update their current candlesticks)
@@ -244,7 +270,7 @@ export function processSamples(
       );
       return {
         tiers: [newCurrentTier, ...recursed.tiers],
-        longestTierCandlestick: recursed.longestTierCandlestick,
+        eternal: recursed.eternal,
       };
     }
   }
