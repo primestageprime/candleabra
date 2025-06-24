@@ -147,7 +147,7 @@ Deno.test("addSampleToCandelabra", async (t) => {
   );
 
   await t.step(
-    "addSampleToCandelabra should ignore a sample with datetime earlier than the latest saved sample minus the duration of the first bucket",
+    "addSampleToCandelabra should ignore a sample with datetime earlier than the oldest sample",
     () => {
       const tooOld = testTime.minus(oneMinute).minus({ milliseconds: 1 });
       const tooOldSample = toSample(1, tooOld);
@@ -158,36 +158,7 @@ Deno.test("addSampleToCandelabra", async (t) => {
   );
 
   await t.step(
-    "addSampleToCandelabra should allow a sample with datetime equal to the latest saved sample minus the duration of the first bucket",
-    () => {
-      const oneMinAgo = testTime.minus(oneMinute);
-      const oldSample = toSample(1, oneMinAgo);
-      const allCandlestick = reduceCandlesticks([
-        defaultSampleCandlestick,
-        toCandlestick(oldSample),
-      ]);
-      const actual = addSampleToCandelabra(
-        oldSample,
-        oneMinuteCandelabra,
-      );
-      const expected = {
-        samples: [oldSample, defaultSample] as R.NonEmptyArray<Sample>,
-        tiers: [
-          {
-            name: "1m",
-            duration: oneMinute,
-            history: [],
-            current: allCandlestick,
-          },
-        ] as R.NonEmptyArray<Tier>,
-        eternal: allCandlestick,
-      };
-      assertEquals(actual, expected);
-    },
-  );
-
-  await t.step(
-    "addSampleToCandelabra, when given a sample that falls outside the first bucket's current candlestick, should add the old candlestick to history and create a new current candlestick with the new sample. It should also prune the samples to only contain those that are newer than the oldest sample in the new current candlestick.",
+    "addSampleToCandelabra, when given a sample that's after the first bucket's current candlestick, should add the old candlestick to history and create a new current candlestick with the new sample. It should also prune the samples to only contain those that are newer than the oldest sample in the new current candlestick.",
     () => {
       const firstMinTime = testTime.plus({ seconds: 30 });
       const firstMinSample = toSample(4, firstMinTime); // this sample should fall within the 1m bucket's first candlestick
@@ -224,13 +195,14 @@ Deno.test("addSampleToCandelabra", async (t) => {
         firstMinCandlestick,
         secondMinCandlestick,
       ]);
+      console.log("actual", actual);
       const expected = {
         samples: [secondMinSample] as R.NonEmptyArray<Sample>,
         tiers: [
           {
             name: "1m",
             duration: oneMinute,
-            history: [firstMinCandlestick],
+            history: [], // don't need any history b/c eternal candlestick will serve as history
             current: secondMinCandlestick,
           },
         ] as R.NonEmptyArray<Tier>,
