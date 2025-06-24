@@ -14,12 +14,12 @@ export type Candlestick = {
   closeAt: DateTime;
 };
 
-export type BucketConfig = {
+export type TierConfig = {
   name: string;
-  bucketDuration: Duration;
+  duration: Duration;
 };
 
-export type Bucket = BucketConfig & {
+export type Tier = TierConfig & {
   history: Candlestick[];
   current: Candlestick;
 };
@@ -31,6 +31,6 @@ export type Sample = {
 
 export type Candelabra = {
   samples: R.NonEmptyArray<Sample>;
-  buckets: R.NonEmptyArray<Bucket>;
+  tiers: R.NonEmptyArray<Tier>;
   eternal: Candlestick;
 };

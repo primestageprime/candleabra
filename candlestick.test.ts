@@ -10,11 +10,11 @@ import {
 import { assertEquals } from "jsr:@std/assert";
 import { renderSmartCandlesticks } from "./renderCandlesticks.ts";
 import type {
-  Bucket,
-  BucketConfig,
   Candelabra,
   Candlestick,
   Sample,
+  Tier,
+  TierConfig,
 } from "./types.d.ts";
 
 const testTime = DateTime.fromISO("2025-06-20T12:00:00.000Z");
@@ -24,9 +24,9 @@ const defaultSample = toSample(1, testTime);
 const defaultSampleCandlestick = toCandlestick(defaultSample);
 
 const oneMinute = Duration.fromISO("PT1M");
-const oneMinuteBucket = { name: "1m", bucketDuration: oneMinute };
+const oneMinuteTier = { name: "1m", duration: oneMinute };
 const oneMinuteCandelabra = toCandelabra(defaultSample, [
-  oneMinuteBucket,
+  oneMinuteTier,
 ]);
 
 Deno.test("toSample", async (t) => {
@@ -39,17 +39,17 @@ Deno.test("toSample", async (t) => {
 Deno.test("toCandelabra", async (t) => {
   await t.step("toCandelabra", () => {
     const sample = toSample(1, testTime);
-    const bucketConfigs: R.NonEmptyArray<BucketConfig> = [
-      { name: "1m", bucketDuration: oneMinute },
+    const bucketConfigs: R.NonEmptyArray<TierConfig> = [
+      { name: "1m", duration: oneMinute },
     ];
     const actual: Candelabra = toCandelabra(sample, bucketConfigs);
     const expectedCandlestick: Candlestick = toCandlestick(sample);
     const expected: Candelabra = {
       samples: [sample],
-      buckets: [
+      tiers: [
         {
           name: "1m",
-          bucketDuration: oneMinute,
+          duration: oneMinute,
           history: [],
           current: expectedCandlestick,
         },
@@ -97,14 +97,14 @@ Deno.test("addSampleToCandelabra", async (t) => {
       ]);
       const expected = {
         samples: [defaultSample, newSample] as R.NonEmptyArray<Sample>,
-        buckets: [
+        tiers: [
           {
             name: "1m",
-            bucketDuration: oneMinute,
+            duration: oneMinute,
             history: [],
             current: expectedCandlestick,
           },
-        ] as R.NonEmptyArray<Bucket>,
+        ] as R.NonEmptyArray<Tier>,
         eternal: expectedCandlestick,
       };
       assertEquals(actual, expected);
@@ -126,17 +126,21 @@ Deno.test("addSampleToCandelabra", async (t) => {
       const sample = toSample(2, testTime);
       const actual = addSampleToCandelabra(sample, oneMinuteCandelabra);
       const sampleCandlestick = toCandlestick(sample);
+      const expectedCandlestick = reduceCandlesticks([
+        defaultSampleCandlestick,
+        sampleCandlestick,
+      ]);
       const expected = {
         samples: [sample] as R.NonEmptyArray<Sample>,
-        buckets: [
+        tiers: [
           {
             name: "1m",
-            bucketDuration: oneMinute,
+            duration: oneMinute,
             history: [],
-            current: sampleCandlestick,
+            current: expectedCandlestick,
           },
-        ] as R.NonEmptyArray<Bucket>,
-        eternal: sampleCandlestick,
+        ] as R.NonEmptyArray<Tier>,
+        eternal: expectedCandlestick,
       };
       assertEquals(actual, expected);
     },
@@ -168,14 +172,14 @@ Deno.test("addSampleToCandelabra", async (t) => {
       );
       const expected = {
         samples: [oldSample, defaultSample] as R.NonEmptyArray<Sample>,
-        buckets: [
+        tiers: [
           {
             name: "1m",
-            bucketDuration: oneMinute,
+            duration: oneMinute,
             history: [],
             current: allCandlestick,
           },
-        ] as R.NonEmptyArray<Bucket>,
+        ] as R.NonEmptyArray<Tier>,
         eternal: allCandlestick,
       };
       assertEquals(actual, expected);
@@ -202,19 +206,19 @@ Deno.test("addSampleToCandelabra", async (t) => {
         open: 1,
         close: 4,
         high: 4,
-        low: 4,
+        low: 1,
         mean: 2.5,
         openAt: testTime,
         closeAt: firstMinCloseAt, // candlestick lasts an entire minute because it's no longer active
       };
       const secondMinCandlestick = {
-        open: 4,
-        close: 4,
-        high: 4,
-        low: 4,
-        mean: 4,
+        open: 5,
+        close: 5,
+        high: 5,
+        low: 5,
+        mean: 5,
         openAt: firstMinCloseAt,
-        closeAt: secondMinTime,
+        closeAt: secondMinTime, // candlestick is active, so closeAt is the last sample's datetime
       };
       const eternalCandlestick = reduceCandlesticks([
         firstMinCandlestick,
@@ -222,14 +226,14 @@ Deno.test("addSampleToCandelabra", async (t) => {
       ]);
       const expected = {
         samples: [secondMinSample] as R.NonEmptyArray<Sample>,
-        buckets: [
+        tiers: [
           {
             name: "1m",
-            bucketDuration: oneMinute,
+            duration: oneMinute,
             history: [firstMinCandlestick],
             current: secondMinCandlestick,
           },
-        ] as R.NonEmptyArray<Bucket>,
+        ] as R.NonEmptyArray<Tier>,
         eternal: eternalCandlestick,
       };
       assertEquals(actual, expected);
@@ -252,14 +256,14 @@ Deno.test("addSampleToCandelabra", async (t) => {
       };
       const expected = {
         samples: [defaultSample, newSample] as R.NonEmptyArray<Sample>,
-        buckets: [
+        tiers: [
           {
             name: "1m",
-            bucketDuration: oneMinute,
+            duration: oneMinute,
             history: [],
             current: currentCandlestick,
           },
-        ] as R.NonEmptyArray<Bucket>,
+        ] as R.NonEmptyArray<Tier>,
         eternal: currentCandlestick,
       };
       assertEquals(actual, expected);
@@ -311,10 +315,10 @@ Deno.test("addSampleToCandelabra", async (t) => {
       ]);
       const expected = {
         samples: [fourthMinSample] as R.NonEmptyArray<Sample>, // we only keep samples that are relevant to the current candlestick
-        buckets: [
+        tiers: [
           {
             name: "1m",
-            bucketDuration: oneMinute,
+            duration: oneMinute,
             history: [
               expectedFirstMinCandlestick,
               expectedSecondMinCandlestick,
@@ -322,7 +326,7 @@ Deno.test("addSampleToCandelabra", async (t) => {
             ],
             current: expectedCurrentCandlestick,
           },
-        ] as R.NonEmptyArray<Bucket>,
+        ] as R.NonEmptyArray<Tier>,
         eternal: expectedEternalCandlestick,
       };
       assertEquals(actual, expected);
