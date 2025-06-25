@@ -361,6 +361,49 @@ Deno.test("addSampleToCandelabra: multi-tier: should handle a sample causing a t
     eternal: expectedFirstSecondThirdMinCandlestick,
   };
   assertEqualsWithFloatTolerance(actualBasesLoaded, expectedBasesLoaded);
+
+  // now that bases are loaded, trigger a cascade:
+  const fourthMinTime = thirdMinTime.plus({ seconds: 61 });
+  const fourthMinSample = toSample(8, fourthMinTime);
+  const actualCascaded = addSampleToCandelabra(
+    fourthMinSample,
+    actualBasesLoaded,
+  );
+  const expectedThirdMinCandlestick = {
+    ...toCandlestick(thirdMinSample),
+    openAt: thirdMinTime,
+    closeAt: thirdMinTime.plus(oneMinute),
+  };
+  const expectedFourthMinCandlestick = {
+    ...toCandlestick(fourthMinSample),
+    openAt: fourthMinTime,
+    closeAt: fourthMinTime,
+  };
+  const expectedEternalCandlestick = reduceCandlesticks([
+    expectedFirstMinCandlestick,
+    expectedSecondMinCandlestick,
+    expectedThirdMinCandlestick,
+    expectedFourthMinCandlestick,
+  ]);
+  const expectedCascaded = {
+    samples: [fourthMinSample] as R.NonEmptyArray<Sample>,
+    tiers: [
+      {
+        name: "1m",
+        duration: oneMinute,
+        history: [],
+        current: expectedFourthMinCandlestick,
+      },
+      {
+        name: "3m",
+        duration: threeMinute,
+        history: [expectedFirstSecondThirdMinCandlestick],
+        current: expectedFourthMinCandlestick,
+      },
+    ],
+    eternal: expectedEternalCandlestick,
+  };
+  assertEquals(actualCascaded, expectedCascaded);
 });
 
 Deno.test(
