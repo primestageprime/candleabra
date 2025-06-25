@@ -188,11 +188,6 @@ export function processSamples(
   eternal: Candlestick;
 } {
   const [tier, ...restTiers] = tiers;
-  const sampleCandlesticks: R.NonEmptyArray<Candlestick> = R.map(
-    toCandlestick,
-    samples,
-  ) as R.NonEmptyArray<Candlestick>;
-  const currentCandlestick = reduceCandlesticks(sampleCandlesticks);
   const newestSample = R.last(samples);
   const newestSampleCandlestick = toCandlestick(newestSample);
   const oldestSample = R.head(samples);
@@ -211,9 +206,6 @@ export function processSamples(
       tier.current,
       tier.duration,
     );
-    // the current openAt is either the last history's closeAt or, if this is the first sample, that sample's datetime
-    const currentOpenAt = newHistoricalCandlestick?.closeAt ||
-      currentCandlestick.closeAt;
 
     const howManyCurrentTierDurationsSinceLastSample = Math.floor(
       distance / tier.duration.as("milliseconds"),
@@ -256,6 +248,9 @@ export function processSamples(
       //     tiers?.[0]?.history?.[0]?.openAt || Duration.fromMillis(0),
       //   ).as("seconds"),
       // );
+      // the current openAt is either the last history's closeAt or, if this is the first sample, that sample's datetime
+      const currentOpenAt = newHistoricalCandlestick?.closeAt ||
+        newestSample.dateTime;
       const newCurrent = {
         ...newestSampleCandlestick,
         openAt: currentOpenAt,
