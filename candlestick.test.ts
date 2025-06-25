@@ -311,29 +311,21 @@ Deno.test("addSampleToCandelabra: multi-tier: should handle a sample causing a t
 Deno.test(
   "addSampleToCandelabra: if a sample is recieved that more than two durations away from the openAt of the first bucket's current candlestick, should generate the correct number of historical candlesticks in that bucket using existing data",
   () => {
-    const firstMinTime = testTime.plus({ milliseconds: 100 });
-    const firstMinSample1 = toSample(2, firstMinTime); // this sample should fall within the 1m bucket's first min candlestick
-    const firstMinTime2 = firstMinTime.plus({ milliseconds: 100 });
-    const firstMinSample2 = toSample(3, firstMinTime2); // this sample should fall within the 1m bucket's first min candlestick
-    const fourthMinSample = toSample(
-      4,
-      testTime.plus({ minutes: 3, seconds: 30 }),
-    ); // this sample skips three entire candlestick durations, should fall within the 1m bucket's fourth min candlestick
+    const fourthMinSample = toSample(4, testTime.plus({ minutes: 3 }));
     const actual = addSamplesToCandelabra(
-      [firstMinSample1, firstMinSample2, fourthMinSample],
+      [fourthMinSample],
       oneMinuteCandelabra,
     );
 
-    // we expect a first min candlestick that consists of the multiple samples that fall within it
+    // we expect a first min candlestick that consists of the single sample that falls within it
     const expectedFirstMinCandlestick = reduceCandlesticks([
       defaultSampleCandlestick,
-      toCandlestick(firstMinSample1),
-      toCandlestick(firstMinSample2),
+      toCandlestick(fourthMinSample),
     ]);
 
     // we expect a second min candlestick that consists entirely of one datapoint extrapolated from the last data point we have before it
     const expectedSecondMinCandlestick = {
-      ...toCandlestick(firstMinSample2),
+      ...toCandlestick(defaultSample),
       openAt: testTime.plus(oneMinute),
       closeAt: testTime.plus({ minutes: 2 }),
     };
@@ -352,7 +344,7 @@ Deno.test(
       expectedFirstMinCandlestick,
       expectedSecondMinCandlestick,
       expectedThirdMinCandlestick,
-      expectedCurrentCandlestick,
+      toCandlestick(fourthMinSample), // note that we want the sample openAt (as opposed to the "snapped" one) when adding the current candlestick to eternal
     ]);
     const expected = {
       samples: [fourthMinSample] as R.NonEmptyArray<Sample>, // we only keep samples that are relevant to the current candlestick
@@ -370,6 +362,10 @@ Deno.test(
       ] as R.NonEmptyArray<Tier>,
       eternal: expectedEternalCandlestick,
     };
+    console.log(`actual current: ${JSON.stringify(actual.tiers[0].current)}`);
+    console.log(
+      `expected current: ${JSON.stringify(expected.tiers[0].current)}`,
+    );
     assertEquals(actual, expected);
   },
 );

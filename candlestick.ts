@@ -201,10 +201,8 @@ export function processSamples(
   const currentTierDuration = thisTier.duration;
   const oldestCandlestick = R.head(thisTier.history);
   const openAt = oldestCandlestick?.openAt || oldestSample.dateTime;
-  const distance = currentCandlestick.closeAt.diff(openAt, "milliseconds")
-    .as(
-      "milliseconds",
-    );
+  const distance = currentCandlestick.closeAt.diff(openAt, "milliseconds");
+  console.log(`distance: ${distance.as("seconds")}`);
   const distanceExceedsDuration =
     distance > currentTierDuration.as("milliseconds");
   if (distanceExceedsDuration) {
@@ -216,6 +214,34 @@ export function processSamples(
     // the current openAt is either the last history's closeAt or, if this is the first sample, that sample's datetime
     const currentOpenAt = newHistoricalCandlestick?.closeAt ||
       currentCandlestick.closeAt;
+
+    console.log(
+      `computing currentOpenAt from ${newHistoricalCandlestick.closeAt} and ${currentCandlestick.closeAt}, got ${currentOpenAt}`,
+    );
+    const howManyCurrentTierDurationsSinceLastSample = Math.floor(
+      distance /
+        currentTierDuration.as("milliseconds"),
+    );
+    if (howManyCurrentTierDurationsSinceLastSample > 1) {
+      console.log(
+        `howManyCurrentTierDurationsSinceLastSample: ${howManyCurrentTierDurationsSinceLastSample}`,
+      );
+      const syntheticSamples = R.range(
+        0,
+        howManyCurrentTierDurationsSinceLastSample,
+      ).map((i) => {
+        return {
+          dateTime: currentOpenAt.plus({
+            milliseconds: i * currentTierDuration.as("milliseconds"),
+          }),
+          value: currentCandlestick.close,
+        };
+      });
+      return processSamples(
+        restTiers as NonEmptyArray<Tier>,
+        R.append(newestSample, syntheticSamples) as R.NonEmptyArray<Sample>,
+      );
+    }
     if (R.isEmpty(restTiers)) {
       console.log("leaf node, new bucket");
       // if the newest sample should result in the current candlestick being historized
