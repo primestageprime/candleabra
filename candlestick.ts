@@ -152,7 +152,7 @@ export function addSampleToCandelabra(
   console.log("tiers");
   tiers.forEach(observeTier);
   const firstTier = tiers[0];
-  const sampleCutoff = firstTier.history[0]?.openAt.plus(firstTier.duration);
+  const sampleCutoff = firstTier.current?.openAt;
   const samples = R.dropWhile(
     (sample) => sample.dateTime < sampleCutoff,
     sortedSamples,
@@ -234,7 +234,7 @@ export function processSamples(
         ...newestSampleCandlestick,
         openAt: currentOpenAt,
       };
-      const history = [newHistoricalCandlestick];
+      const history = [newHistoricalCandlestick]; // todo do we need this? eternal should handle history in this case
       return {
         tiers: [{
           ...thisTier,
