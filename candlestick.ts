@@ -95,11 +95,11 @@ export function addSampleToCandelabra(
   sample: Sample,
   candelabra: Candelabra,
 ): Candelabra {
-  // console.log("================addSampleToCandelabra=================");
-  // console.log("sample");
-  // renderSamples([sample]);
-  // console.log("candelabra");
-  // renderCandelabra(candelabra);
+  console.log("================addSampleToCandelabra=================");
+  console.log("sample");
+  renderSamples([sample]);
+  console.log("candelabra");
+  renderCandelabra(candelabra);
   // Get the latest sample's datetime
   const latestSample = R.last(candelabra.samples);
   if (!latestSample) {
@@ -187,7 +187,7 @@ export function processSamples(
   tiers: R.NonEmptyArray<Tier>;
   eternal: Candlestick;
 } {
-  const [thisTier, ...restTiers] = tiers;
+  const [tier, ...restTiers] = tiers;
   const sampleCandlesticks: R.NonEmptyArray<Candlestick> = R.map(
     toCandlestick,
     samples,
@@ -197,51 +197,36 @@ export function processSamples(
   const newestSampleCandlestick = toCandlestick(newestSample);
   const oldestSample = R.head(samples);
 
-  // does the distance between the openAt of the oldest candlestick in this tier's history and the newest sample candlestick's closeAt exceed this tier's duration?
-  const currentTierDuration = thisTier.duration;
-  const oldestCandlestick = R.head(thisTier.history);
-  const openAt = oldestCandlestick?.openAt || oldestSample.dateTime;
-  const distance = currentCandlestick.closeAt.diff(openAt, "milliseconds");
+  const distance = getDistance(
+    R.head(tier.history),
+    oldestSample.dateTime,
+    newestSample.dateTime,
+  );
   console.log(`distance: ${distance.as("seconds")}`);
-  const distanceExceedsDuration =
-    distance > currentTierDuration.as("milliseconds");
-  if (distanceExceedsDuration) {
+  const distanceExceedsTierDuration =
+    distance > tier.duration.as("milliseconds");
+  if (distanceExceedsTierDuration) {
     // newest sample's time means we should historize "current"
     const newHistoricalCandlestick = historizeCandlestick(
-      thisTier.current,
-      thisTier.duration,
+      tier.current,
+      tier.duration,
     );
     // the current openAt is either the last history's closeAt or, if this is the first sample, that sample's datetime
     const currentOpenAt = newHistoricalCandlestick?.closeAt ||
       currentCandlestick.closeAt;
 
-    console.log(
-      `computing currentOpenAt from ${newHistoricalCandlestick.closeAt} and ${currentCandlestick.closeAt}, got ${currentOpenAt}`,
-    );
     const howManyCurrentTierDurationsSinceLastSample = Math.floor(
-      distance /
-        currentTierDuration.as("milliseconds"),
+      distance / tier.duration.as("milliseconds"),
     );
-    if (howManyCurrentTierDurationsSinceLastSample > 1) {
-      console.log(
-        `howManyCurrentTierDurationsSinceLastSample: ${howManyCurrentTierDurationsSinceLastSample}`,
-      );
-      const syntheticSamples = R.range(
-        0,
-        howManyCurrentTierDurationsSinceLastSample,
-      ).map((i) => {
-        return {
-          dateTime: currentOpenAt.plus({
-            milliseconds: i * currentTierDuration.as("milliseconds"),
-          }),
-          value: currentCandlestick.close,
-        };
-      });
-      return processSamples(
-        restTiers as NonEmptyArray<Tier>,
-        R.append(newestSample, syntheticSamples) as R.NonEmptyArray<Sample>,
-      );
-    }
+    const historicalCandlesticks = toHistoricalCandlesticks(
+      newHistoricalCandlestick,
+      tier.duration,
+      howManyCurrentTierDurationsSinceLastSample,
+    );
+    console.log(
+      "newHistoricalCandlesticks",
+      JSON.stringify(historicalCandlesticks),
+    );
     if (R.isEmpty(restTiers)) {
       console.log("leaf node, new bucket");
       // if the newest sample should result in the current candlestick being historized
@@ -251,7 +236,7 @@ export function processSamples(
       // and set the samples to just the newest sample
 
       const eternal = reduceCandlesticks([
-        thisTier.current,
+        tier.current,
         newestSampleCandlestick,
       ]);
       // console.log(
@@ -275,10 +260,10 @@ export function processSamples(
         ...newestSampleCandlestick,
         openAt: currentOpenAt,
       };
-      const history = [newHistoricalCandlestick]; // todo do we need this? eternal should handle history in this case
+      const history = [...historicalCandlesticks]; // todo do we need this? eternal should handle history in this case
       return {
         tiers: [{
-          ...thisTier,
+          ...tier,
           history,
           current: newCurrent,
         }],
@@ -294,9 +279,9 @@ export function processSamples(
         restTiers as NonEmptyArray<Tier>,
         samples,
       );
-      const history = [...thisTier.history, newHistoricalCandlestick];
+      const history = [...tier.history, ...historicalCandlesticks];
       const newCurrentTier = {
-        ...thisTier,
+        ...tier,
         history,
         current: newestSampleCandlestick,
       };
@@ -308,10 +293,10 @@ export function processSamples(
   } else {
     console.log("leaf node, no new bucket");
     const newCurrentCandlestick = reduceCandlesticks([
-      thisTier.current,
+      tier.current,
       newestSampleCandlestick,
     ]);
-    const newCurrentTier = { ...thisTier, current: newCurrentCandlestick };
+    const newCurrentTier = { ...tier, current: newCurrentCandlestick };
     if (R.isEmpty(restTiers)) {
       // if the newest sample should not result in this tier's current candlestick being historized
       // and there are no other tiers to cascade to
@@ -338,6 +323,15 @@ export function processSamples(
   }
 }
 
+export function getDistance(
+  lastHistoricalCandlestick: Candlestick | undefined,
+  oldestSampleDateTime: DateTime,
+  newestSampleDateTime: DateTime,
+): Duration {
+  const openAt = lastHistoricalCandlestick?.closeAt || oldestSampleDateTime;
+  return newestSampleDateTime.diff(openAt, "milliseconds");
+}
+
 export function historizeCandlestick(
   candlestick: Candlestick,
   duration: Duration,
@@ -354,7 +348,10 @@ export function addSamplesToCandelabra(
   initialCandelabra: Candelabra,
 ): Candelabra {
   return R.reduce(
-    (candelabra, sample) => addSampleToCandelabra(sample, candelabra),
+    (candelabra, sample) => {
+      console.log("!!!calling addSampleToCandelabra!!!");
+      return addSampleToCandelabra(sample, candelabra);
+    },
     initialCandelabra,
     samples,
   );
@@ -388,4 +385,30 @@ function renderSamples(samples: R.NonEmptyArray<Sample>): void {
     R.map(toCandlestick, samples),
     Duration.fromMillis(1),
   );
+}
+
+export function toHistoricalCandlesticks(
+  candlestick: Candlestick,
+  duration: Duration,
+  numToGenerate: number,
+): R.NonEmptyArray<Candlestick> {
+  const syntheticCandlesticks = (numToGenerate > 1)
+    ? R.range(
+      0,
+      numToGenerate,
+    ).map((i) => {
+      return {
+        ...candlestick,
+        openAt: candlestick.openAt.plus({
+          milliseconds: i * duration.as("milliseconds"),
+        }),
+        closeAt: candlestick.closeAt.plus({
+          milliseconds: (i + 1) * duration.as("milliseconds"),
+        }),
+      };
+    }) as R.NonEmptyArray<Candlestick>
+    : [];
+  return R.append(candlestick, syntheticCandlesticks) as R.NonEmptyArray<
+    Candlestick
+  >;
 }

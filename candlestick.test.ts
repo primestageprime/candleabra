@@ -241,13 +241,13 @@ Deno.test(
 
 Deno.test("addSampleToCandelabra: multi-tier: should handle a sample causing a tier to cascade", () => {
   // first, "bases loaded" on the 1m tier
-  // first min filled by default sample above
+  // first minute filled by default sample above, and time started
   const secondMinTime = testTime.plus({ seconds: 61 });
-  const secondMinSample = toSample(4, secondMinTime); // fill second min tier
+  const secondMinSample = toSample(4, secondMinTime); // fill second minute tier
   const thirdMinTime = secondMinTime.plus({ seconds: 61 });
-  const thirdMinSample = toSample(6, thirdMinTime); // fill third min tier
+  const thirdMinSample = toSample(6, thirdMinTime); // fill third minute tier
   const samples: R.NonEmptyArray<Sample> = [
-    defaultSample,
+    // don't need to include defaultSample because the candelabra is created with it
     secondMinSample,
     thirdMinSample,
   ];
@@ -256,29 +256,17 @@ Deno.test("addSampleToCandelabra: multi-tier: should handle a sample causing a t
     oneAndThreeMinuteCandelabra,
   );
   const expectedFirstMinCandlestick = {
-    open: 2,
-    close: 2,
-    high: 2,
-    low: 2,
-    mean: 2,
+    ...toCandlestick(defaultSample),
     openAt: testTime,
     closeAt: testTime.plus(oneMinute),
   };
   const expectedSecondMinCandlestick = {
-    open: 4,
-    close: 4,
-    high: 4,
-    low: 4,
-    mean: 4,
+    ...toCandlestick(secondMinSample),
     openAt: secondMinTime,
     closeAt: secondMinTime.plus(oneMinute),
   };
   const expectedThirdMinCurrentCandlestick = {
-    open: 6,
-    close: 6,
-    high: 6,
-    low: 6,
-    mean: 6,
+    ...toCandlestick(thirdMinSample),
     openAt: thirdMinTime,
     closeAt: thirdMinTime,
   };

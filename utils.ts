@@ -93,11 +93,11 @@ export const getTimeWeightedMean = (
 
   const result = (weightedInitMean + last.mean) / 2;
 
-  console.log(`duration: ${duration}`);
-  console.log(
-    `mean of ${JSON.stringify(initMeans)} and ${last.mean}: ${
-      weightedInitMean + last.mean
-    } / 2 = ${result}`,
-  );
+  // console.log(`duration: ${duration}`);
+  // console.log(
+  //   `mean of ${JSON.stringify(initMeans)} and ${last.mean}: ${
+  //     weightedInitMean + last.mean
+  //   } / 2 = ${result}`,
+  // );
   return result;
 };
