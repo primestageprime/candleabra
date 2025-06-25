@@ -291,7 +291,7 @@ Deno.test(
         {
           name: "1m",
           duration: oneMinute,
-          history: [], // don't need any history b/c eternal candlestick will serve as history
+          history: [firstMinCandlestick],
           current: secondMinCandlestick,
         },
       ] as R.NonEmptyArray<Tier>,

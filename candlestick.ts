@@ -16,7 +16,7 @@ import {
   getOpen,
   getOpenAt,
 } from "./utils.ts";
-import { DateTime } from "luxon";
+import { DateTime, Duration } from "luxon";
 import { renderSmartCandlesticks } from "./renderCandlesticks.ts";
 
 // Re-export types
@@ -202,10 +202,6 @@ export function processSamples(
     );
   const distanceExceedsDuration =
     distance > currentTierDuration.as("milliseconds");
-  const newestHistoricalCandlestick = R.last(thisTier.history);
-  // the current openAt is either the last history's closeAt or, if this is the first sample, that sample's datetime
-  const currentOpenAt = newestHistoricalCandlestick?.closeAt ||
-    newestSample.dateTime;
   console.log("processSamples", {
     currentTierDuration,
     oldestCandlestick,
@@ -213,12 +209,17 @@ export function processSamples(
     newestSampleDateTime: newestSample.dateTime,
     distance,
     distanceExceedsDuration,
-    newestHistoricalCandlestick,
-    newestHistoricalCandlestickCloseAt: newestHistoricalCandlestick?.closeAt,
     newestSampleCloseAt: newestSample.dateTime,
-    currentOpenAt,
   });
   if (distanceExceedsDuration) {
+    // newest sample's time means we should historize "current"
+    const newHistoricalCandlestick = historizeCandlestick(
+      thisTier.current,
+      thisTier.duration,
+    );
+    // the current openAt is either the last history's closeAt or, if this is the first sample, that sample's datetime
+    const currentOpenAt = newHistoricalCandlestick?.closeAt ||
+      newestSample.dateTime;
     if (R.isEmpty(restTiers)) {
       console.log("leaf node, new bucket");
       // if the newest sample should result in the current candlestick being historized
@@ -234,10 +235,11 @@ export function processSamples(
         ...newestSampleCandlestick,
         openAt: currentOpenAt,
       };
+      const history = [newHistoricalCandlestick];
       return {
         tiers: [{
           ...thisTier,
-          history: [thisTier.current], // todo just saving this to generate the sample cutoff, it's probably wrong tho
+          history,
           current: newCurrent,
         }],
         eternal,
@@ -252,7 +254,7 @@ export function processSamples(
         restTiers as NonEmptyArray<Tier>,
         samples,
       );
-      const history = [...thisTier.history, newestSampleCandlestick];
+      const history = [...thisTier.history, newHistoricalCandlestick];
       const newCurrentTier = {
         ...thisTier,
         history,
@@ -294,6 +296,16 @@ export function processSamples(
       };
     }
   }
+}
+
+export function historizeCandlestick(
+  candlestick: Candlestick,
+  duration: Duration,
+): Candlestick {
+  return {
+    ...candlestick,
+    closeAt: candlestick.openAt.plus(duration),
+  };
 }
 
 export function addSamplesToCandelabra(
