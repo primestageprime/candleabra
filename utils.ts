@@ -62,6 +62,42 @@ export const getMean = (list: NonEmptyArray<Candlestick>): number => {
   if (list.length === 1) {
     return list[0].mean;
   }
+  const means = R.map(R.prop("mean"), list);
+  const result = R.mean(means);
+  console.log(
+    `mean of ${JSON.stringify(means)}: ${
+      R.sum(means)
+    } / ${means.length} = ${result}`,
+  );
+  return result;
+};
 
-  return R.mean(R.map(R.prop("mean"), list));
+export const getTimeWeightedMean = (
+  list: NonEmptyArray<Candlestick>,
+): number => {
+  if (list.length === 1) {
+    return list[0].mean;
+  }
+
+  const init = R.init(list);
+  const last = R.last(list);
+  const openAt = init[0].openAt;
+  const closeAt = R.last(init)!.closeAt;
+  const duration = R.equals(closeAt, openAt)
+    ? 1
+    : closeAt.diff(openAt, "milliseconds").as("milliseconds");
+
+  const initMeans = R.map(R.prop("mean"), init);
+  const initMeansSum = R.sum(initMeans);
+  const weightedInitMean = initMeansSum / duration;
+
+  const result = (weightedInitMean + last.mean) / 2;
+
+  console.log(`duration: ${duration}`);
+  console.log(
+    `mean of ${JSON.stringify(initMeans)} and ${last.mean}: ${
+      weightedInitMean + last.mean
+    } / 2 = ${result}`,
+  );
+  return result;
 };
