@@ -150,8 +150,7 @@ export function addSampleToCandelabra(
   );
 
   console.log("tiers");
-  console.log(tiers);
-  // tiers.forEach(observeTier);
+  tiers.forEach(observeTier);
   const firstTier = tiers[0];
   const sampleCutoff = firstTier.history[0]?.openAt.plus(firstTier.duration);
   const samples = R.dropWhile(
@@ -304,6 +303,7 @@ export function historizeCandlestick(
 ): Candlestick {
   return {
     ...candlestick,
+    // historized candlesticks should be fixed to the size of the duration after openAt
     closeAt: candlestick.openAt.plus(duration),
   };
 }
@@ -322,8 +322,8 @@ export function addSamplesToCandelabra(
 function observeTier(tier: Tier): void {
   console.log(`====== name: ${tier.name} ======`);
   console.log("current");
-  renderSmartCandlesticks([tier.current]);
+  renderSmartCandlesticks([tier.current], tier.duration);
   console.log("history");
-  renderSmartCandlesticks(tier.history || []);
+  renderSmartCandlesticks(tier.history || [], tier.duration);
   console.log("====== end tier ======");
 }

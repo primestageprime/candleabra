@@ -1,5 +1,5 @@
 import type { Candlestick } from "./types.d.ts";
-import { DateTime } from "luxon";
+import { DateTime, Duration } from "luxon";
 
 const CELL_WIDTH = 10;
 const YELLOW = "\x1b[33m";
@@ -36,7 +36,7 @@ function formatTime(dt: DateTime): string {
 
 function renderCandlestickGrid(
   candlestick: Candlestick,
-  granularity: string = "1s",
+  duration: Duration,
 ): string[] {
   // Top, mid, bottom borders
   const top = BORDER + "┌" + "─".repeat(CELL_WIDTH) + "┬" +
@@ -46,13 +46,14 @@ function renderCandlestickGrid(
   const bot = BORDER + "└" + "─".repeat(CELL_WIDTH) + "┴" +
     "─".repeat(CELL_WIDTH) + "┴" + "─".repeat(CELL_WIDTH) + "┘" + RESET;
 
-  // Row 1: [granularity, high, duration]
+  // Row 1: [tier duration (e.g. "1m"), high, actual duration (e.g. "00:01:00")]
   const row1 = BORDER + "│" + RESET +
-    YELLOW + formatCell(granularity, CELL_WIDTH) + RESET +
+    YELLOW +
+    formatCell(duration.toHuman({ unitDisplay: "short" }), CELL_WIDTH) + RESET +
     BORDER + "│" + RESET +
     YELLOW + formatNumber(candlestick.high) + RESET +
     BORDER + "│" + RESET +
-    YELLOW + formatCell(granularity, CELL_WIDTH) + RESET +
+    YELLOW + formatCell(duration.toFormat("mm:ss.SSS"), CELL_WIDTH) + RESET +
     BORDER + "│" + RESET;
 
   // Row 2: [open, mean, close]
@@ -78,9 +79,9 @@ function renderCandlestickGrid(
 
 function renderMultipleCandlesticks(
   candlesticks: Candlestick[],
-  granularity: string = "1s",
+  duration: Duration,
 ) {
-  const grids = candlesticks.map((c) => renderCandlestickGrid(c, granularity));
+  const grids = candlesticks.map((c) => renderCandlestickGrid(c, duration));
   for (let i = 0; i < grids[0].length; i++) {
     const line = grids.map((g) => g[i]).join("  -  ");
     console.log(line);
@@ -142,8 +143,12 @@ function renderEllipsisBox(omitted: number): string[] {
 
 export function renderSmartCandlesticks(
   candlesticks: Candlestick[],
-  granularity: string = "1s",
+  duration: Duration,
 ) {
+  if (candlesticks.length === 0) {
+    console.log("renderSmartCandlesticks: no candlesticks");
+    return;
+  }
   let display: (Candlestick | null)[];
   let omitted = 0;
   if (candlesticks.length <= 4) {
@@ -160,7 +165,7 @@ export function renderSmartCandlesticks(
   }
   // Render each grid, using the ellipsis function for null values
   const grids = display.map((c, i) => {
-    if (c) return renderCandlestickGrid(c, granularity);
+    if (c) return renderCandlestickGrid(c, duration);
     return renderEllipsisBox(omitted);
   });
   for (let i = 0; i < grids[0].length; i++) {
