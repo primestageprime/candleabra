@@ -84,174 +84,172 @@ Deno.test("reduceCandlesticks", async (t) => {
   );
 });
 
-Deno.test("addSampleToCandelabra", async (t) => {
-  await t.step(
-    "addSampleToCandelabra should be able to add a sample to a candelabra",
-    () => {
-      const newSample = toSample(1, tPlusOneMs);
-      const actual = addSampleToCandelabra(newSample, oneMinuteCandelabra);
-      const sampleCandlestick = toCandlestick(newSample);
-      const expectedCandlestick = reduceCandlesticks([
-        defaultSampleCandlestick,
-        sampleCandlestick,
-      ]);
-      const expected = {
-        samples: [defaultSample, newSample] as R.NonEmptyArray<Sample>,
-        tiers: [
-          {
-            name: "1m",
-            duration: oneMinute,
-            history: [],
-            current: expectedCandlestick,
-          },
-        ] as R.NonEmptyArray<Tier>,
-        eternal: expectedCandlestick,
-      };
-      assertEquals(actual, expected);
-    },
-  );
+Deno.test(
+  "addSampleToCandelabra should be able to add a sample to a candelabra",
+  () => {
+    const newSample = toSample(1, tPlusOneMs);
+    const actual = addSampleToCandelabra(newSample, oneMinuteCandelabra);
+    const sampleCandlestick = toCandlestick(newSample);
+    const expectedCandlestick = reduceCandlesticks([
+      defaultSampleCandlestick,
+      sampleCandlestick,
+    ]);
+    const expected = {
+      samples: [defaultSample, newSample] as R.NonEmptyArray<Sample>,
+      tiers: [
+        {
+          name: "1m",
+          duration: oneMinute,
+          history: [],
+          current: expectedCandlestick,
+        },
+      ] as R.NonEmptyArray<Tier>,
+      eternal: expectedCandlestick,
+    };
+    assertEquals(actual, expected);
+  },
+);
 
-  await t.step(
-    "addSampleToCandelabra should be idempotent when adding the same sample",
-    () => {
-      const actual = addSampleToCandelabra(defaultSample, oneMinuteCandelabra);
-      const expected = oneMinuteCandelabra;
-      assertEquals(actual, expected);
-    },
-  );
+Deno.test(
+  "addSampleToCandelabra should be idempotent when adding the same sample",
+  () => {
+    const actual = addSampleToCandelabra(defaultSample, oneMinuteCandelabra);
+    const expected = oneMinuteCandelabra;
+    assertEquals(actual, expected);
+  },
+);
 
-  await t.step(
-    "addSampleToCandelabra should handle samples with identical dateTime but different value as an upserts",
-    () => {
-      const sample = toSample(2, testTime);
-      const actual = addSampleToCandelabra(sample, oneMinuteCandelabra);
-      const sampleCandlestick = toCandlestick(sample);
-      const expectedCandlestick = reduceCandlesticks([
-        defaultSampleCandlestick,
-        sampleCandlestick,
-      ]);
-      const expected = {
-        samples: [sample] as R.NonEmptyArray<Sample>,
-        tiers: [
-          {
-            name: "1m",
-            duration: oneMinute,
-            history: [],
-            current: expectedCandlestick,
-          },
-        ] as R.NonEmptyArray<Tier>,
-        eternal: expectedCandlestick,
-      };
-      assertEquals(actual, expected);
-    },
-  );
+Deno.test(
+  "addSampleToCandelabra should handle samples with identical dateTime but different value as an upserts",
+  () => {
+    const sample = toSample(2, testTime);
+    const actual = addSampleToCandelabra(sample, oneMinuteCandelabra);
+    const sampleCandlestick = toCandlestick(sample);
+    const expectedCandlestick = reduceCandlesticks([
+      defaultSampleCandlestick,
+      sampleCandlestick,
+    ]);
+    const expected = {
+      samples: [sample] as R.NonEmptyArray<Sample>,
+      tiers: [
+        {
+          name: "1m",
+          duration: oneMinute,
+          history: [],
+          current: expectedCandlestick,
+        },
+      ] as R.NonEmptyArray<Tier>,
+      eternal: expectedCandlestick,
+    };
+    assertEquals(actual, expected);
+  },
+);
 
-  await t.step(
-    "addSampleToCandelabra should ignore a sample with datetime earlier than the oldest sample",
-    () => {
-      const tooOld = testTime.minus(oneMinute).minus({ milliseconds: 1 });
-      const tooOldSample = toSample(1, tooOld);
-      const actual = addSampleToCandelabra(tooOldSample, oneMinuteCandelabra);
-      const expected = oneMinuteCandelabra;
-      assertEquals(actual, expected);
-    },
-  );
+Deno.test(
+  "addSampleToCandelabra should ignore a sample with datetime earlier than the oldest sample",
+  () => {
+    const tooOld = testTime.minus(oneMinute).minus({ milliseconds: 1 });
+    const tooOldSample = toSample(1, tooOld);
+    const actual = addSampleToCandelabra(tooOldSample, oneMinuteCandelabra);
+    const expected = oneMinuteCandelabra;
+    assertEquals(actual, expected);
+  },
+);
 
-  await t.step(
-    "addSampleToCandelabra: current candlestick's closeAt should be updated to the new sample's datetime",
-    () => {
-      const newSample = toSample(2, testTime.plus({ seconds: 30 }));
-      const actual = addSampleToCandelabra(newSample, oneMinuteCandelabra);
+Deno.test(
+  "addSampleToCandelabra: current candlestick's closeAt should be updated to the new sample's datetime",
+  () => {
+    const newSample = toSample(2, testTime.plus({ seconds: 30 }));
+    const actual = addSampleToCandelabra(newSample, oneMinuteCandelabra);
 
-      const expectedCandlestick = {
-        open: 1,
-        close: 2,
-        high: 2,
-        low: 1,
-        mean: 1.5,
-        openAt: testTime,
-        closeAt: newSample.dateTime,
-      };
-      const expected = {
-        samples: [defaultSample, newSample],
-        tiers: [
-          {
-            name: "1m",
-            duration: oneMinute,
-            history: [],
-            current: expectedCandlestick,
-          },
-        ] as R.NonEmptyArray<Tier>,
-        eternal: expectedCandlestick,
-      };
+    const expectedCandlestick = {
+      open: 1,
+      close: 2,
+      high: 2,
+      low: 1,
+      mean: 1.5,
+      openAt: testTime,
+      closeAt: newSample.dateTime,
+    };
+    const expected = {
+      samples: [defaultSample, newSample],
+      tiers: [
+        {
+          name: "1m",
+          duration: oneMinute,
+          history: [],
+          current: expectedCandlestick,
+        },
+      ] as R.NonEmptyArray<Tier>,
+      eternal: expectedCandlestick,
+    };
 
-      assertEquals(actual, expected);
-    },
-  );
+    assertEquals(actual, expected);
+  },
+);
 
-  await t.step(
-    "addSampleToCandelabra: if a sample is recieved that more than two durations away from the openAt of the first bucket's current candlestick, should generate the correct number of historical candlesticks in that bucket using existing data",
-    () => {
-      const firstMinTime = testTime.plus({ milliseconds: 100 });
-      const firstMinSample1 = toSample(2, firstMinTime); // this sample should fall within the 1m bucket's first min candlestick
-      const firstMinTime2 = firstMinTime.plus({ milliseconds: 100 });
-      const firstMinSample2 = toSample(3, firstMinTime2); // this sample should fall within the 1m bucket's first min candlestick
-      const fourthMinSample = toSample(
-        4,
-        testTime.plus({ minutes: 3, seconds: 30 }),
-      ); // this sample skips three entire candlestick durations, should fall within the 1m bucket's fourth min candlestick
-      const actual = addSamplesToCandelabra(
-        [firstMinSample1, firstMinSample2, fourthMinSample],
-        oneMinuteCandelabra,
-      );
+Deno.test(
+  "addSampleToCandelabra: if a sample is recieved that more than two durations away from the openAt of the first bucket's current candlestick, should generate the correct number of historical candlesticks in that bucket using existing data",
+  () => {
+    const firstMinTime = testTime.plus({ milliseconds: 100 });
+    const firstMinSample1 = toSample(2, firstMinTime); // this sample should fall within the 1m bucket's first min candlestick
+    const firstMinTime2 = firstMinTime.plus({ milliseconds: 100 });
+    const firstMinSample2 = toSample(3, firstMinTime2); // this sample should fall within the 1m bucket's first min candlestick
+    const fourthMinSample = toSample(
+      4,
+      testTime.plus({ minutes: 3, seconds: 30 }),
+    ); // this sample skips three entire candlestick durations, should fall within the 1m bucket's fourth min candlestick
+    const actual = addSamplesToCandelabra(
+      [firstMinSample1, firstMinSample2, fourthMinSample],
+      oneMinuteCandelabra,
+    );
 
-      // we expect a first min candlestick that consists of the multiple samples that fall within it
-      const expectedFirstMinCandlestick = reduceCandlesticks([
-        defaultSampleCandlestick,
-        toCandlestick(firstMinSample1),
-        toCandlestick(firstMinSample2),
-      ]);
+    // we expect a first min candlestick that consists of the multiple samples that fall within it
+    const expectedFirstMinCandlestick = reduceCandlesticks([
+      defaultSampleCandlestick,
+      toCandlestick(firstMinSample1),
+      toCandlestick(firstMinSample2),
+    ]);
 
-      // we expect a second min candlestick that consists entirely of one datapoint extrapolated from the last data point we have before it
-      const expectedSecondMinCandlestick = {
-        ...toCandlestick(firstMinSample2),
-        openAt: testTime.plus(oneMinute),
-        closeAt: testTime.plus({ minutes: 2 }),
-      };
-      // same with third min candlestick
-      const expectedThirdMinCandlestick = {
-        ...expectedSecondMinCandlestick,
-        openAt: testTime.plus({ minutes: 2 }),
-        closeAt: testTime.plus({ minutes: 3 }),
-      };
-      // our current candlestick is created using the newest sample
-      const expectedCurrentCandlestick = toCandlestick(fourthMinSample);
-      const expectedEternalCandlestick = reduceCandlesticks([
-        expectedFirstMinCandlestick,
-        expectedSecondMinCandlestick,
-        expectedThirdMinCandlestick,
-        expectedCurrentCandlestick,
-      ]);
-      const expected = {
-        samples: [fourthMinSample] as R.NonEmptyArray<Sample>, // we only keep samples that are relevant to the current candlestick
-        tiers: [
-          {
-            name: "1m",
-            duration: oneMinute,
-            history: [
-              expectedFirstMinCandlestick,
-              expectedSecondMinCandlestick,
-              expectedThirdMinCandlestick,
-            ],
-            current: expectedCurrentCandlestick,
-          },
-        ] as R.NonEmptyArray<Tier>,
-        eternal: expectedEternalCandlestick,
-      };
-      assertEquals(actual, expected);
-    },
-  );
-});
+    // we expect a second min candlestick that consists entirely of one datapoint extrapolated from the last data point we have before it
+    const expectedSecondMinCandlestick = {
+      ...toCandlestick(firstMinSample2),
+      openAt: testTime.plus(oneMinute),
+      closeAt: testTime.plus({ minutes: 2 }),
+    };
+    // same with third min candlestick
+    const expectedThirdMinCandlestick = {
+      ...expectedSecondMinCandlestick,
+      openAt: testTime.plus({ minutes: 2 }),
+      closeAt: testTime.plus({ minutes: 3 }),
+    };
+    // our current candlestick is created using the newest sample
+    const expectedCurrentCandlestick = toCandlestick(fourthMinSample);
+    const expectedEternalCandlestick = reduceCandlesticks([
+      expectedFirstMinCandlestick,
+      expectedSecondMinCandlestick,
+      expectedThirdMinCandlestick,
+      expectedCurrentCandlestick,
+    ]);
+    const expected = {
+      samples: [fourthMinSample] as R.NonEmptyArray<Sample>, // we only keep samples that are relevant to the current candlestick
+      tiers: [
+        {
+          name: "1m",
+          duration: oneMinute,
+          history: [
+            expectedFirstMinCandlestick,
+            expectedSecondMinCandlestick,
+            expectedThirdMinCandlestick,
+          ],
+          current: expectedCurrentCandlestick,
+        },
+      ] as R.NonEmptyArray<Tier>,
+      eternal: expectedEternalCandlestick,
+    };
+    assertEquals(actual, expected);
+  },
+);
 
 Deno.test(
   "addSampleToCandelabra, when given a sample that's after the first bucket's current candlestick, should add the old candlestick to history and create a new current candlestick with the new sample. It should also prune the samples to only contain those that are newer than the oldest sample in the new current candlestick.",

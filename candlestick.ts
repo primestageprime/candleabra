@@ -17,6 +17,7 @@ import {
   getOpenAt,
 } from "./utils.ts";
 import { DateTime } from "luxon";
+import { renderSmartCandlesticks } from "./renderCandlesticks.ts";
 
 // Re-export types
 export * from "./types.d.ts";
@@ -148,7 +149,9 @@ export function addSampleToCandelabra(
     sortedSamples,
   );
 
-  console.log("tiers", tiers);
+  console.log("tiers");
+  console.log(tiers);
+  // tiers.forEach(observeTier);
   const firstTier = tiers[0];
   const sampleCutoff = firstTier.history[0]?.openAt.plus(firstTier.duration);
   const samples = R.dropWhile(
@@ -156,7 +159,7 @@ export function addSampleToCandelabra(
     sortedSamples,
   ) as R.NonEmptyArray<Sample>;
 
-  console.log("sampleCutoff", sampleCutoff);
+  console.log("sampleCutoff", sampleCutoff?.toFormat("HH:mm:ss.SSS"));
   console.log("samples", samples);
   console.log("candelabra samples", candelabra.samples);
 
@@ -199,13 +202,21 @@ export function processSamples(
     );
   const distanceExceedsDuration =
     distance > currentTierDuration.as("milliseconds");
-  console.log({
+  const newestHistoricalCandlestick = R.last(thisTier.history);
+  // the current openAt is either the last history's closeAt or, if this is the first sample, that sample's datetime
+  const currentOpenAt = newestHistoricalCandlestick?.closeAt ||
+    newestSample.dateTime;
+  console.log("processSamples", {
     currentTierDuration,
     oldestCandlestick,
     oldestCandlestickOpenAt: oldestCandlestick?.openAt,
     newestSampleDateTime: newestSample.dateTime,
     distance,
     distanceExceedsDuration,
+    newestHistoricalCandlestick,
+    newestHistoricalCandlestickCloseAt: newestHistoricalCandlestick?.closeAt,
+    newestSampleCloseAt: newestSample.dateTime,
+    currentOpenAt,
   });
   if (distanceExceedsDuration) {
     if (R.isEmpty(restTiers)) {
@@ -219,11 +230,15 @@ export function processSamples(
         thisTier.current,
         newestSampleCandlestick,
       ]);
+      const newCurrent = {
+        ...newestSampleCandlestick,
+        openAt: currentOpenAt,
+      };
       return {
         tiers: [{
           ...thisTier,
-          history: [thisTier.current],
-          current: newestSampleCandlestick,
+          history: [thisTier.current], // todo just saving this to generate the sample cutoff, it's probably wrong tho
+          current: newCurrent,
         }],
         eternal,
       };
@@ -290,4 +305,13 @@ export function addSamplesToCandelabra(
     initialCandelabra,
     samples,
   );
+}
+
+function observeTier(tier: Tier): void {
+  console.log(`====== name: ${tier.name} ======`);
+  console.log("current");
+  renderSmartCandlesticks([tier.current]);
+  console.log("history");
+  renderSmartCandlesticks(tier.history || []);
+  console.log("====== end tier ======");
 }
