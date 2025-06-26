@@ -1,7 +1,6 @@
 import * as R from "ramda";
-import type { NonEmptyArray } from "npm:@types/ramda@0.30.2";
-import type { Candelabra, Sample, Tier } from "./types.d.ts";
-import { singleSampleCandelabra, toCandlestick } from "./core.ts";
+import type { Candelabra, Sample } from "./types.d.ts";
+import { singleSampleCandelabra } from "./core.ts";
 import { getCutoffTime, pruneSamples, updateSamples } from "./utils.ts";
 import { processSamples } from "./processing.ts";
 import { renderCandelabra, renderSamples } from "./render.ts";
@@ -28,7 +27,6 @@ export function addSampleToCandelabra(
     return candelabra;
   }
 
-  // Check if a sample with the same dateTime exists and find its index
   const sortedSamples = updateSamples(sample, candelabra);
 
   const { tiers, eternal } = processSamples(
