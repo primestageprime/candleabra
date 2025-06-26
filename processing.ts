@@ -10,13 +10,12 @@ import {
 } from "./utils.ts";
 
 export function processSamples(
-  tiers: R.NonEmptyArray<Tier>,
+  [tier, ...restTiers]: R.NonEmptyArray<Tier>,
   samples: R.NonEmptyArray<Sample>,
 ): {
   tiers: R.NonEmptyArray<Tier>;
   eternal: Candlestick;
 } {
-  const [tier, ...restTiers] = tiers;
   console.log("processing tier", tier.name);
   const newestSample = R.last(samples);
   const newestSampleCandlestick = toCandlestick(newestSample);
