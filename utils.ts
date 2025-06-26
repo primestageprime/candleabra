@@ -1,7 +1,7 @@
 import * as R from "ramda";
 import type { NonEmptyArray } from "npm:@types/ramda@0.30.2";
-import type { Candlestick } from "./types.d.ts";
-import { DateTime } from "luxon";
+import type { Candlestick, Sample, Tier } from "./types.d.ts";
+import { DateTime, Duration } from "luxon";
 
 export const getOpenAt: (list: NonEmptyArray<Candlestick>) => DateTime = R.pipe<
   [NonEmptyArray<Candlestick>],
@@ -101,3 +101,100 @@ export const getTimeWeightedMean = (
   // );
   return result;
 };
+
+// Calculate the cutoff time: latest sample time minus smallest tier duration
+export function getCutoffTime(
+  latestSample: Sample,
+  tiers: NonEmptyArray<Tier>,
+): DateTime {
+  const smallestTierDuration = tiers[0].duration;
+  return latestSample.dateTime.minus(smallestTierDuration);
+}
+
+export function getDistance(
+  lastHistoricalCandlestick: Candlestick | undefined,
+  oldestSampleDateTime: DateTime,
+  newestSampleDateTime: DateTime,
+): Duration {
+  const openAt = lastHistoricalCandlestick?.closeAt || oldestSampleDateTime;
+  return newestSampleDateTime.diff(openAt, "milliseconds");
+}
+
+export function historizeCandlestick(
+  candlestick: Candlestick,
+  duration: Duration,
+): Candlestick {
+  return {
+    ...candlestick,
+    // historized candlesticks should be fixed to the size of the duration after openAt
+    closeAt: candlestick.openAt.plus(duration),
+  };
+}
+
+export function toHistoricalCandlesticks(
+  candlestick: Candlestick,
+  duration: Duration,
+  distance: Duration,
+): R.NonEmptyArray<Candlestick> {
+  const numToGenerate = Math.floor(
+    distance / duration.as("milliseconds"),
+  );
+  const syntheticCandlesticks = (numToGenerate > 1)
+    ? R.range(
+      0,
+      numToGenerate,
+    ).map((i) => {
+      return {
+        ...candlestick,
+        openAt: candlestick.openAt.plus({
+          milliseconds: i * duration.as("milliseconds"),
+        }),
+        closeAt: candlestick.closeAt.plus({
+          milliseconds: (i + 1) * duration.as("milliseconds"),
+        }),
+      };
+    }) as R.NonEmptyArray<Candlestick>
+    : [];
+  return R.append(candlestick, syntheticCandlesticks) as R.NonEmptyArray<
+    Candlestick
+  >;
+}
+
+export function pruneSamples(
+  tiers: R.NonEmptyArray<Tier>,
+  sortedSamples: R.NonEmptyArray<Sample>,
+) {
+  const firstTier = tiers[0];
+  const sampleCutoff = firstTier.current?.openAt;
+  const samples = R.dropWhile(
+    (sample) => sample.dateTime < sampleCutoff,
+    sortedSamples,
+  ) as R.NonEmptyArray<Sample>;
+  return samples;
+}
+
+export function updateSamples(
+  sample: Sample,
+  candelabra: { samples: R.NonEmptyArray<Sample> },
+): R.NonEmptyArray<Sample> {
+  const existingIndex = R.findIndex(
+    (existingSample) => existingSample.dateTime.equals(sample.dateTime),
+    candelabra.samples,
+  );
+
+  // Update samples based on whether we need to upsert or append
+  const updatedSamples = existingIndex >= 0
+    ? R.adjust(
+      existingIndex,
+      () => sample,
+      candelabra.samples,
+    ) as R.NonEmptyArray<Sample>
+    : R.append(sample, candelabra.samples) as R.NonEmptyArray<Sample>;
+
+  // Sort samples by datetime (ascending, oldest first) for aggregates
+  const sortedSamples = R.sort(
+    (a: Sample, b: Sample) => a.dateTime.toMillis() - b.dateTime.toMillis(),
+    updatedSamples,
+  ) as R.NonEmptyArray<Sample>;
+  return sortedSamples;
+}
