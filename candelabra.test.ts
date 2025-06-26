@@ -1,15 +1,13 @@
 import { DateTime, Duration } from "luxon";
+import { addSamplesToCandelabra, addSampleToCandelabra } from "./candelabra.ts";
 import {
-  addSamplesToCandelabra,
-  addSampleToCandelabra,
-  historizeCandlestick,
   reduceCandlesticks,
   toCandelabra,
   toCandlestick,
   toSample,
-} from "./candlestick.ts";
-import { assertAlmostEquals, assertEquals } from "jsr:@std/assert";
-import { renderSmartCandlesticks } from "./renderCandlesticks.ts";
+} from "./core.ts";
+import { historizeCandlestick } from "./utils.ts";
+import { assertEquals } from "jsr:@std/assert";
 import type {
   Candelabra,
   Candlestick,
@@ -36,124 +34,6 @@ const oneAndThreeMinuteCandelabra = toCandelabra(defaultSample, [
   oneMinuteTier,
   threeMinuteTier,
 ]);
-
-// Helper function for comparing objects with float tolerance
-function assertEqualsWithFloatTolerance(
-  actual: any,
-  expected: any,
-  tolerance: number = 1e-6,
-  path: string = "",
-): void {
-  if (typeof actual === "number" && typeof expected === "number") {
-    assertAlmostEquals(
-      actual,
-      expected,
-      tolerance,
-      `${path}: ${actual} ≈ ${expected}`,
-    );
-    return;
-  }
-
-  if (typeof actual !== typeof expected) {
-    throw new Error(
-      `${path}: Types don't match. Expected ${typeof expected}, got ${typeof actual}`,
-    );
-  }
-
-  if (Array.isArray(actual) && Array.isArray(expected)) {
-    if (actual.length !== expected.length) {
-      throw new Error(
-        `${path}: Array lengths don't match. Expected ${expected.length}, got ${actual.length}`,
-      );
-    }
-    actual.forEach((item, index) => {
-      assertEqualsWithFloatTolerance(
-        item,
-        expected[index],
-        tolerance,
-        `${path}[${index}]`,
-      );
-    });
-    return;
-  }
-
-  if (typeof actual === "object" && actual !== null && expected !== null) {
-    const actualKeys = Object.keys(actual);
-    const expectedKeys = Object.keys(expected);
-
-    if (actualKeys.length !== expectedKeys.length) {
-      throw new Error(
-        `${path}: Object key counts don't match. Expected ${expectedKeys.length}, got ${actualKeys.length}`,
-      );
-    }
-
-    expectedKeys.forEach((key) => {
-      if (!(key in actual)) {
-        throw new Error(`${path}: Missing key '${key}' in actual`);
-      }
-      assertEqualsWithFloatTolerance(
-        actual[key],
-        expected[key],
-        tolerance,
-        `${path}.${key}`,
-      );
-    });
-    return;
-  }
-
-  assertEquals(actual, expected, path);
-}
-
-Deno.test("toSample", async (t) => {
-  await t.step("toSample", () => {
-    const sample = toSample(2, testTime);
-    assertEquals(sample, { dateTime: testTime, value: 2 });
-  });
-});
-
-Deno.test("toCandelabra", () => {
-  const sample = toSample(2, testTime);
-  const bucketConfigs: R.NonEmptyArray<TierConfig> = [
-    { name: "1m", duration: oneMinute },
-  ];
-  const actual: Candelabra = toCandelabra(sample, bucketConfigs);
-  const expectedCandlestick: Candlestick = toCandlestick(sample);
-  const expected: Candelabra = {
-    samples: [sample],
-    tiers: [
-      {
-        name: "1m",
-        duration: oneMinute,
-        history: [],
-        current: expectedCandlestick,
-      },
-    ],
-    eternal: expectedCandlestick,
-  };
-  assertEquals(actual, expected);
-});
-
-Deno.test(
-  "reduceCandlesticks should handle out of order candlesticks",
-  () => {
-    const oldSample = toSample(2, testTime.minus(oneMinute));
-    const newSample = toSample(4, testTime);
-    const actual = reduceCandlesticks([
-      toCandlestick(newSample),
-      toCandlestick(oldSample),
-    ]);
-    const expected = {
-      open: 2,
-      close: 4,
-      high: 4,
-      low: 2,
-      mean: 3,
-      openAt: oldSample.dateTime,
-      closeAt: newSample.dateTime,
-    };
-    assertEquals(actual, expected);
-  },
-);
 
 Deno.test(
   "addSampleToCandelabra should be able to add a sample to a candelabra",
@@ -276,12 +156,6 @@ Deno.test(
       defaultSampleCandlestick,
       secondMinSampleCandlestick,
     ]);
-    // console.log("defaultSampleCandlestick");
-    // renderSmartCandlesticks([defaultSampleCandlestick], oneMinute);
-    // console.log("secondMinCandlestick");
-    // renderSmartCandlesticks([secondMinCandlestick], oneMinute);
-    // console.log("eternalCandlestick");
-    // renderSmartCandlesticks([eternalCandlestick], oneMinute);
     const expectedHistory = [
       historizeCandlestick(defaultSampleCandlestick, oneMinute),
     ];
@@ -363,49 +237,6 @@ Deno.test("addSampleToCandelabra: multi-tier: should handle a sample causing a t
     eternal: expectedFirstSecondThirdMinCurrentCandlestick,
   };
   assertEquals(actualBasesLoaded, expectedBasesLoaded);
-
-  // // now that bases are loaded, trigger a cascade:
-  // const fourthMinTime = thirdMinSampleTime.plus({ seconds: 61 });
-  // const fourthMinSample = toSample(8, fourthMinTime);
-  // const actualCascaded = addSampleToCandelabra(
-  //   fourthMinSample,
-  //   actualBasesLoaded,
-  // );
-  // const expectedThirdMinCandlestick = {
-  //   ...toCandlestick(thirdMinSample),
-  //   openAt: thirdMinSampleTime,
-  //   closeAt: thirdMinSampleTime.plus(oneMinute),
-  // };
-  // const expectedFourthMinCandlestick = {
-  //   ...toCandlestick(fourthMinSample),
-  //   openAt: fourthMinTime,
-  //   closeAt: fourthMinTime,
-  // };
-  // const expectedEternalCandlestick = reduceCandlesticks([
-  //   expectedFirstMinCandlestick,
-  //   expectedSecondMinCandlestick,
-  //   expectedThirdMinCandlestick,
-  //   expectedFourthMinCandlestick,
-  // ]);
-  // const expectedCascaded = {
-  //   samples: [fourthMinSample] as R.NonEmptyArray<Sample>,
-  //   tiers: [
-  //     {
-  //       name: "1m",
-  //       duration: oneMinute,
-  //       history: [],
-  //       current: expectedFourthMinCandlestick,
-  //     },
-  //     {
-  //       name: "3m",
-  //       duration: threeMinute,
-  //       history: [expectedFirstSecondThirdMinCurrentCandlestick],
-  //       current: expectedFourthMinCandlestick,
-  //     },
-  //   ],
-  //   eternal: expectedEternalCandlestick,
-  // };
-  // assertEquals(actualCascaded, expectedCascaded);
 });
 
 Deno.test(
