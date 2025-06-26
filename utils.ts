@@ -139,6 +139,10 @@ export function toHistoricalCandlesticks(
   const numToGenerate = Math.floor(
     distance / duration.as("milliseconds"),
   );
+
+  // Use the candlestick's openAt as the anchor time for all bucket boundaries
+  const anchorTime = candlestick.openAt;
+
   const syntheticCandlesticks = (numToGenerate > 1)
     ? R.range(
       0,
@@ -146,10 +150,10 @@ export function toHistoricalCandlesticks(
     ).map((i) => {
       return {
         ...candlestick,
-        openAt: candlestick.openAt.plus({
+        openAt: anchorTime.plus({
           milliseconds: i * duration.as("milliseconds"),
         }),
-        closeAt: candlestick.closeAt.plus({
+        closeAt: anchorTime.plus({
           milliseconds: (i + 1) * duration.as("milliseconds"),
         }),
       };
