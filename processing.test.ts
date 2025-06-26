@@ -106,10 +106,9 @@ Deno.test("processOverflow - branch node scenario", () => {
   const result = processOverflow(
     tier1,
     newCandlestick,
-    sample2,
     distance,
-    restTiers,
     [sample1, sample2],
+    restTiers,
   );
 
   assertEquals(result.tiers.length, 2);
@@ -137,7 +136,6 @@ Deno.test("processOverflowLeaf - creates new bucket correctly", () => {
     tier,
     newCandlestick,
     historicalCandlesticks,
-    sample2,
     historicalCandlestick,
   );
 

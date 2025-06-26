@@ -38,10 +38,9 @@ export function processSamples(
     return processOverflow(
       tier,
       newestSampleCandlestick,
-      newestSample,
       distance,
-      restTiers as NonEmptyArray<Tier>,
       samples,
+      restTiers as NonEmptyArray<Tier>,
     );
   } else {
     // if the newest sample should not result in this tier's current candlestick being historized
@@ -58,10 +57,9 @@ export function processSamples(
 export function processOverflow(
   tier: Tier,
   newestSampleCandlestick: Candlestick,
-  newestSample: Sample,
   distance: Duration,
-  restTiers: NonEmptyArray<Tier>,
   samples: NonEmptyArray<Sample>,
+  restTiers: NonEmptyArray<Tier>,
 ): {
   tiers: NonEmptyArray<Tier>;
   eternal: Candlestick;
@@ -90,7 +88,6 @@ export function processOverflow(
       tier,
       newestSampleCandlestick,
       historicalCandlesticks,
-      newestSample,
       newHistoricalCandlestick,
     );
   } else {
@@ -113,7 +110,6 @@ export function processOverflowLeaf(
   tier: Tier,
   newestSampleCandlestick: Candlestick,
   historicalCandlesticks: NonEmptyArray<Candlestick>,
-  newestSample: Sample,
   newHistoricalCandlestick: Candlestick,
 ): {
   tiers: NonEmptyArray<Tier>;
@@ -142,7 +138,7 @@ export function processOverflowLeaf(
   // );
   // the current openAt is either the newest history's closeAt or, if this is the first sample, that sample's datetime
   const currentOpenAt = newHistoricalCandlestick?.closeAt ||
-    newestSample.dateTime;
+    newestSampleCandlestick.closeAt;
   const newCurrent = {
     ...newestSampleCandlestick,
     openAt: currentOpenAt,
