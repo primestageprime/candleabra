@@ -1,8 +1,12 @@
 import * as R from "ramda";
 import type { Candelabra, Sample } from "./types.d.ts";
-import { singleSampleCandelabra } from "./core.ts";
+import {
+  samplesToCandlestick,
+  singleSampleCandelabra,
+  toCandlestick,
+} from "./core.ts";
 import { getCutoffTime, pruneSamples, updateSamples } from "./utils.ts";
-import { processSamples } from "./processing.ts";
+import { processCandlestick } from "./processing.ts";
 import { renderCandelabra, renderSamples } from "./render.ts";
 
 export function addSampleToCandelabra(
@@ -28,10 +32,11 @@ export function addSampleToCandelabra(
   }
 
   const sortedSamples = updateSamples(sample, candelabra);
+  const candlestick = samplesToCandlestick(sortedSamples);
 
-  const { tiers, eternal } = processSamples(
+  const { tiers, eternal } = processCandlestick(
     candelabra.tiers,
-    sortedSamples,
+    candlestick,
   );
 
   const samples = pruneSamples(tiers, sortedSamples);

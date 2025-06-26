@@ -24,9 +24,7 @@ const defaultSample = toSample(2, testTime);
 const defaultSampleCandlestick = toCandlestick(defaultSample);
 
 const oneMinute = Duration.fromISO("PT1M");
-const oneMinuteTier = { name: "1m", duration: oneMinute };
 const threeMinute = Duration.fromISO("PT3M");
-const threeMinuteTier = { name: "3m", duration: threeMinute };
 
 // Test data setup
 const sample1 = toSample(2, testTime);
@@ -311,17 +309,20 @@ Deno.test("reduceCandlesticks", async (t) => {
   await t.step(
     "reduceCandlesticks should handle multiple candlesticks in order",
     () => {
+      console.log("HERE");
       const actual = reduceCandlesticks([
         candlestick1,
         candlestick2,
         candlestick3,
       ]);
+      console.log("HERE2");
 
       assertEquals(actual.open, 2); // First candlestick open
       assertEquals(actual.close, 1); // Last candlestick close
       assertEquals(actual.high, 4); // Highest value across all
       assertEquals(actual.low, 1); // Lowest value across all
       assertEquals(actual.openAt, testTime); // First candlestick openAt
+      assertAlmostEquals(actual.mean, 2.3333333333333335); // (2 + 4 + 1) / 3 = 2.33
       // for some reason, I need to stringify these to get them to compare?
       assertEquals(
         JSON.stringify(actual.closeAt),
@@ -423,4 +424,23 @@ Deno.test("reduceCandlesticks", async (t) => {
       assertEquals(actual.closeAt, testTime.plus({ seconds: 60 }));
     },
   );
+
+  await t.step("reduceCandlesticks should handle mean calculation", () => {
+    const newSample = toSample(1, tPlusOneMs);
+    const sampleCandlestick = toCandlestick(newSample);
+    const actual = reduceCandlesticks([
+      defaultSampleCandlestick,
+      sampleCandlestick,
+    ]);
+    const expected = {
+      open: 2,
+      close: 1,
+      high: 2,
+      low: 1,
+      mean: 1.5,
+      openAt: testTime,
+      closeAt: tPlusOneMs,
+    };
+    assertEquals(actual, expected);
+  });
 });

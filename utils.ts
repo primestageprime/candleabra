@@ -79,26 +79,54 @@ export const getTimeWeightedMean = (
     return list[0].mean;
   }
 
-  const init = R.init(list);
-  const last = R.last(list);
-  const openAt = init[0].openAt;
-  const closeAt = R.last(init)!.closeAt;
-  const duration = R.equals(closeAt, openAt)
-    ? 1
-    : closeAt.diff(openAt, "milliseconds").as("milliseconds");
+  // Calculate time-weighted mean by weighting each candlestick's mean by its duration
+  const weightedSum = R.reduce<Candlestick, number>(
+    (acc, candlestick) => {
+      const duration = candlestick.closeAt.diff(
+        candlestick.openAt,
+        "milliseconds",
+      ).as("milliseconds");
+      const weight = Math.max(duration, 1); // Ensure minimum weight of 1ms to avoid division by zero
+      return acc + (candlestick.mean * weight);
+    },
+    0,
+    list,
+  );
 
-  const initMeans = R.map(R.prop("mean"), init);
-  const initMeansSum = R.sum(initMeans);
-  const weightedInitMean = initMeansSum / duration;
+  const totalDuration = R.reduce<Candlestick, number>(
+    (acc, candlestick) => {
+      const duration = candlestick.closeAt.diff(
+        candlestick.openAt,
+        "milliseconds",
+      ).as("milliseconds");
+      return acc + Math.max(duration, 1);
+    },
+    0,
+    list,
+  );
 
-  const result = (weightedInitMean + last.mean) / 2;
+  const result = weightedSum / totalDuration;
 
-  // console.log(`duration: ${duration}`);
+  // console.log(`Time-weighted mean calculation:`);
   // console.log(
-  //   `mean of ${JSON.stringify(initMeans)} and ${last.mean}: ${
-  //     weightedInitMean + last.mean
-  //   } / 2 = ${result}`,
+  //   `Candlesticks: ${
+  //     JSON.stringify(
+  //       R.map(
+  //         (c) => ({
+  //           mean: c.mean,
+  //           duration: c.closeAt.diff(c.openAt, "milliseconds").as(
+  //             "milliseconds",
+  //           ),
+  //         }),
+  //         list,
+  //       ),
+  //     )
+  //   }`,
   // );
+  // console.log(
+  //   `Weighted sum: ${weightedSum}, Total duration: ${totalDuration}, Result: ${result}`,
+  // );
+
   return result;
 };
 

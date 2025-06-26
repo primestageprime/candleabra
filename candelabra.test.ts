@@ -8,13 +8,7 @@ import {
 } from "./core.ts";
 import { historizeCandlestick } from "./utils.ts";
 import { assertEquals } from "jsr:@std/assert";
-import type {
-  Candelabra,
-  Candlestick,
-  Sample,
-  Tier,
-  TierConfig,
-} from "./types.d.ts";
+import type { Candelabra, Sample, Tier } from "./types.d.ts";
 
 const testTime = DateTime.fromISO("2025-06-20T12:00:00.000Z");
 const tPlusOneMs = testTime.plus({ milliseconds: 1 });
@@ -38,24 +32,33 @@ const oneAndThreeMinuteCandelabra = toCandelabra(defaultSample, [
 Deno.test(
   "addSampleToCandelabra should be able to add a sample to a candelabra",
   () => {
-    const newSample = toSample(1, tPlusOneMs);
+    const newSample = toSample(4, tPlusOneMs);
     const actual = addSampleToCandelabra(newSample, oneMinuteCandelabra);
+
     const sampleCandlestick = toCandlestick(newSample);
     const expectedCandlestick = reduceCandlesticks([
       defaultSampleCandlestick,
       sampleCandlestick,
     ]);
+    const expectedSamples = [defaultSample, newSample] as R.NonEmptyArray<
+      Sample
+    >;
+    assertEquals(actual.samples, expectedSamples);
+
+    const expectedTier = {
+      name: "1m",
+      duration: oneMinute,
+      history: [],
+      current: expectedCandlestick,
+    };
+    const expectedTiers = [expectedTier] as R.NonEmptyArray<Tier>;
+    assertEquals(actual.tiers, expectedTiers);
+
+    const expectedEternal = expectedCandlestick;
     const expected = {
-      samples: [defaultSample, newSample] as R.NonEmptyArray<Sample>,
-      tiers: [
-        {
-          name: "1m",
-          duration: oneMinute,
-          history: [],
-          current: expectedCandlestick,
-        },
-      ] as R.NonEmptyArray<Tier>,
-      eternal: expectedCandlestick,
+      samples: expectedSamples,
+      tiers: expectedTiers,
+      eternal: expectedEternal,
     };
     assertEquals(actual, expected);
   },
@@ -175,8 +178,7 @@ Deno.test(
       ] as R.NonEmptyArray<Tier>,
       eternal: eternalCandlestick,
     };
-    // todo why do I have to stringify these to make them equal?
-    assertEquals(JSON.stringify(actual), JSON.stringify(expected));
+    assertEquals(actual, expected);
   },
 );
 

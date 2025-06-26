@@ -91,19 +91,132 @@ Deno.test("getMean with single candlestick", () => {
   assertEquals(actual, 2);
 });
 
-Deno.test("getTimeWeightedMean", () => {
-  const actual = getTimeWeightedMean(candlesticks);
-  // The calculation is complex, so we'll test the structure and use a more lenient tolerance
-  assertEquals(typeof actual, "number");
-  // The actual calculation depends on the duration between candlesticks
-  // Let's use a more lenient tolerance since the exact calculation is complex
-  assertAlmostEquals(actual, 0.5, 1.0); // Using a very lenient tolerance
-});
-
 Deno.test("getTimeWeightedMean with single candlestick", () => {
   const singleCandlestick: R.NonEmptyArray<Candlestick> = [candlestick1];
   const actual = getTimeWeightedMean(singleCandlestick);
   assertEquals(actual, 2);
+});
+
+Deno.test("getTimeWeightedMean with equal duration candlesticks", () => {
+  // Create candlesticks with equal durations (1 minute each)
+  const candlestickA = {
+    ...candlestick1,
+    openAt: testTime,
+    closeAt: testTime.plus(oneMinute),
+    mean: 10,
+  };
+  const candlestickB = {
+    ...candlestick2,
+    openAt: testTime.plus(oneMinute),
+    closeAt: testTime.plus(twoMinutes),
+    mean: 20,
+  };
+
+  const candlesticks: R.NonEmptyArray<Candlestick> = [
+    candlestickA,
+    candlestickB,
+  ];
+  const actual = getTimeWeightedMean(candlesticks);
+
+  // With equal durations, should be simple average: (10 + 20) / 2 = 15
+  assertEquals(actual, 15);
+});
+
+Deno.test("getTimeWeightedMean with different duration candlesticks", () => {
+  // Create candlesticks with different durations
+  const candlestickA = {
+    ...candlestick1,
+    openAt: testTime,
+    closeAt: testTime.plus(oneMinute), // 1 minute duration
+    mean: 10,
+  };
+  const candlestickB = {
+    ...candlestick2,
+    openAt: testTime.plus(oneMinute),
+    closeAt: testTime.plus({ minutes: 3 }), // 2 minutes duration
+    mean: 20,
+  };
+
+  const candlesticks: R.NonEmptyArray<Candlestick> = [
+    candlestickA,
+    candlestickB,
+  ];
+  const actual = getTimeWeightedMean(candlesticks);
+
+  // Weighted calculation: (10 * 60000 + 20 * 120000) / (60000 + 120000) = 16.67
+  const expected = (10 * 60000 + 20 * 120000) / (60000 + 120000);
+  assertAlmostEquals(actual, expected, 0.01);
+});
+
+Deno.test("getTimeWeightedMean with zero duration candlesticks", () => {
+  // Create candlesticks with zero duration (should use minimum weight of 1ms)
+  const candlestickA = {
+    ...candlestick1,
+    openAt: testTime,
+    closeAt: testTime, // Zero duration
+    mean: 10,
+  };
+  const candlestickB = {
+    ...candlestick2,
+    openAt: testTime,
+    closeAt: testTime, // Zero duration
+    mean: 20,
+  };
+
+  const candlesticks: R.NonEmptyArray<Candlestick> = [
+    candlestickA,
+    candlestickB,
+  ];
+  const actual = getTimeWeightedMean(candlesticks);
+
+  // With minimum weights of 1ms each: (10 * 1 + 20 * 1) / (1 + 1) = 15
+  assertEquals(actual, 15);
+});
+
+Deno.test("getTimeWeightedMean with three candlesticks of varying durations", () => {
+  const candlestickA = {
+    ...candlestick1,
+    openAt: testTime,
+    closeAt: testTime.plus({ seconds: 30 }), // 30 seconds
+    mean: 10,
+  };
+  const candlestickB = {
+    ...candlestick2,
+    openAt: testTime.plus({ seconds: 30 }),
+    closeAt: testTime.plus({ minutes: 1, seconds: 30 }), // 1 minute
+    mean: 20,
+  };
+  const candlestickC = {
+    ...candlestick3,
+    openAt: testTime.plus({ minutes: 1, seconds: 30 }),
+    closeAt: testTime.plus({ minutes: 2 }), // 30 seconds
+    mean: 30,
+  };
+
+  const candlesticks: R.NonEmptyArray<Candlestick> = [
+    candlestickA,
+    candlestickB,
+    candlestickC,
+  ];
+  const actual = getTimeWeightedMean(candlesticks);
+
+  // Weighted calculation: (10 * 30000 + 20 * 60000 + 30 * 30000) / (30000 + 60000 + 30000) = 20
+  const expected = (10 * 30000 + 20 * 60000 + 30 * 30000) /
+    (30000 + 60000 + 30000);
+  assertAlmostEquals(actual, expected, 0.01);
+});
+
+Deno.test("getTimeWeightedMean with original test data", () => {
+  // Test with the original test data to ensure backward compatibility
+  const actual = getTimeWeightedMean(candlesticks);
+
+  // Calculate expected based on the original test data structure
+  // candlestick1: mean=2, duration=0 (instantaneous)
+  // candlestick2: mean=4, duration=0 (instantaneous)
+  // candlestick3: mean=1, duration=0 (instantaneous)
+  // With minimum weights of 1ms each: (2 * 1 + 4 * 1 + 1 * 1) / (1 + 1 + 1) = 2.33
+  const expected = (2 + 4 + 1) / 3;
+  assertAlmostEquals(actual, expected, 0.01);
 });
 
 Deno.test("getCutoffTime", () => {
