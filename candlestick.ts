@@ -90,6 +90,32 @@ export function toCandelabra(
   };
 }
 
+export function singleSampleCandelabra(
+  sample: Sample,
+  tiers: NonEmptyArray<Tier>,
+): Candelabra {
+  return {
+    samples: [sample],
+    tiers: R.map(
+      (tier) => ({
+        ...tier,
+        current: toCandlestick(sample),
+      }),
+      tiers,
+    ) as R.NonEmptyArray<Tier>,
+    eternal: toCandlestick(sample),
+  };
+}
+
+// Calculate the cutoff time: latest sample time minus smallest tier duration
+export function getCutoffTime(
+  latestSample: Sample,
+  tiers: NonEmptyArray<Tier>,
+): DateTime {
+  const smallestTierDuration = tiers[0].duration;
+  return latestSample.dateTime.minus(smallestTierDuration);
+}
+
 export function addSampleToCandelabra(
   sample: Sample,
   candelabra: Candelabra,
@@ -99,35 +125,53 @@ export function addSampleToCandelabra(
   renderSamples([sample]);
   console.log("candelabra");
   renderCandelabra(candelabra);
-  // Get the latest sample's datetime
+  // get the latest sample before the one we're adding
   const latestSample = R.last(candelabra.samples);
   if (!latestSample) {
     // If no samples exist, just add the new one
-    return {
-      samples: [sample],
-      tiers: R.map(
-        (tier) => ({
-          ...tier,
-          current: toCandlestick(sample),
-        }),
-        candelabra.tiers,
-      ) as R.NonEmptyArray<Tier>,
-      eternal: toCandlestick(sample),
-    };
+    return singleSampleCandelabra(sample, candelabra.tiers);
   }
 
-  // Get the first tier's duration (smallest granularity)
-  const firstTierDuration = candelabra.tiers[0].duration;
-
-  // Calculate the cutoff time: latest sample time minus first tier duration
-  const cutoffTime = latestSample.dateTime.minus(firstTierDuration);
-
+  const cutoffTime = getCutoffTime(latestSample, candelabra.tiers);
   // If the new sample is too old, ignore it
   if (sample.dateTime < cutoffTime) {
     return candelabra;
   }
 
   // Check if a sample with the same dateTime exists and find its index
+  const sortedSamples = updateSamples(sample, candelabra);
+
+  const { tiers, eternal } = processSamples(
+    candelabra.tiers,
+    sortedSamples,
+  );
+
+  const samples = pruneSamples(tiers, sortedSamples);
+
+  return {
+    samples,
+    tiers,
+    eternal,
+  };
+}
+
+function pruneSamples(
+  tiers: R.NonEmptyArray<Tier>,
+  sortedSamples: R.NonEmptyArray<Sample>,
+) {
+  const firstTier = tiers[0];
+  const sampleCutoff = firstTier.current?.openAt;
+  const samples = R.dropWhile(
+    (sample) => sample.dateTime < sampleCutoff,
+    sortedSamples,
+  ) as R.NonEmptyArray<Sample>;
+  return samples;
+}
+
+function updateSamples(
+  sample: Sample,
+  candelabra: Candelabra,
+): R.NonEmptyArray<Sample> {
   const existingIndex = R.findIndex(
     (existingSample) => existingSample.dateTime.equals(sample.dateTime),
     candelabra.samples,
@@ -147,26 +191,7 @@ export function addSampleToCandelabra(
     (a: Sample, b: Sample) => a.dateTime.toMillis() - b.dateTime.toMillis(),
     updatedSamples,
   ) as R.NonEmptyArray<Sample>;
-
-  const { tiers, eternal } = processSamples(
-    candelabra.tiers,
-    sortedSamples,
-  );
-
-  // console.log("tiers");
-  // tiers.forEach(renderTier);
-  const firstTier = tiers[0];
-  const sampleCutoff = firstTier.current?.openAt;
-  const samples = R.dropWhile(
-    (sample) => sample.dateTime < sampleCutoff,
-    sortedSamples,
-  ) as R.NonEmptyArray<Sample>;
-
-  return {
-    samples,
-    tiers: tiers,
-    eternal,
-  };
+  return sortedSamples;
 }
 
 export function samplesToCandlestick(

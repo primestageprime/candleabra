@@ -466,6 +466,6 @@ Deno.test(
     console.log(
       `expected current: ${JSON.stringify(expected.tiers[0].current)}`,
     );
-    assertEqualsWithFloatTolerance(actual, expected);
+    assertEquals(actual, expected);
   },
 );
