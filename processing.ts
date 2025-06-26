@@ -88,7 +88,6 @@ export function processOverflow(
       tier,
       newestSampleCandlestick,
       historicalCandlesticks,
-      newHistoricalCandlestick,
     );
   } else {
     console.log("branch, new bucket");
@@ -110,7 +109,6 @@ export function processOverflowLeaf(
   tier: Tier,
   newestSampleCandlestick: Candlestick,
   historicalCandlesticks: NonEmptyArray<Candlestick>,
-  newHistoricalCandlestick: Candlestick,
 ): {
   tiers: NonEmptyArray<Tier>;
   eternal: Candlestick;
@@ -137,6 +135,7 @@ export function processOverflowLeaf(
   //   ).as("seconds"),
   // );
   // the current openAt is either the newest history's closeAt or, if this is the first sample, that sample's datetime
+  const newHistoricalCandlestick = R.last(historicalCandlesticks);
   const currentOpenAt = newHistoricalCandlestick?.closeAt ||
     newestSampleCandlestick.closeAt;
   const newCurrent = {

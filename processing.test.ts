@@ -1,6 +1,5 @@
 import { DateTime, Duration } from "luxon";
-import * as R from "ramda";
-import { assertEquals, assertExists } from "jsr:@std/assert";
+import { assertEquals } from "jsr:@std/assert";
 import { assertEqualsWithFloatTolerance } from "./testUtils.ts";
 import {
   addSampleCandlestickToCurrent,
@@ -136,7 +135,6 @@ Deno.test("processOverflowLeaf - creates new bucket correctly", () => {
     tier,
     newCandlestick,
     historicalCandlesticks,
-    historicalCandlestick,
   );
 
   assertEquals(result.tiers.length, 1);
