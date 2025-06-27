@@ -30,7 +30,7 @@ export type Sample = {
 };
 
 export type Candelabra = {
-  samples: R.NonEmptyArray<Sample>;
+  samples: R.NonEmptyArray<Sample>; // todo replace with lastProcessedDateTime
   tiers: R.NonEmptyArray<Tier>;
   eternal: Candlestick;
 };

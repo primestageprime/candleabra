@@ -6,7 +6,7 @@ import {
   toCandlestick,
 } from "./core.ts";
 import { getCutoffTime, pruneSamples, updateSamples } from "./utils.ts";
-import { processCandlestick } from "./processing.ts";
+import { processSample } from "./processing.ts";
 import { renderCandelabra, renderSamples } from "./render.ts";
 
 export function addSampleToCandelabra(
@@ -25,21 +25,20 @@ export function addSampleToCandelabra(
     return singleSampleCandelabra(sample, candelabra.tiers);
   }
 
-  const cutoffTime = getCutoffTime(latestSample, candelabra.tiers);
-  // If the new sample is too old, ignore it
-  if (sample.dateTime < cutoffTime) {
+  // If the new sample is old, ignore it
+  if (sample.dateTime < latestSample.dateTime) {
     return candelabra;
   }
 
-  const sortedSamples = updateSamples(sample, candelabra);
-  const candlestick = samplesToCandlestick(sortedSamples);
+  // const sortedSamples = updateSamples(sample, candelabra);
+  // const candlestick = samplesToCandlestick(sortedSamples);
 
-  const { tiers, eternal } = processCandlestick(
+  const { tiers, eternal } = processSample(
     candelabra.tiers,
-    candlestick,
+    sample,
   );
 
-  const samples = pruneSamples(tiers, sortedSamples);
+  const samples = pruneSamples(tiers, candelabra.samples);
 
   return {
     samples,

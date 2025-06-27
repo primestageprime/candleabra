@@ -2,14 +2,13 @@ import { DateTime, Duration } from "luxon";
 import { assertEquals } from "jsr:@std/assert";
 import { assertEqualsWithFloatTolerance } from "./testUtils.ts";
 import {
-  addSampleCandlestickToCurrent,
-  processCandlestick,
   processOverflow,
   processOverflowBranch,
   processOverflowLeaf,
   processPartial,
   processPartialBranch,
   processPartialLeaf,
+  processSample,
 } from "./processing.ts";
 import { samplesToCandlestick, toCandlestick } from "./core.ts";
 import type { Candlestick, Sample, Tier } from "./types.d.ts";
@@ -38,16 +37,13 @@ function createSample(value: number, dateTime: DateTime): Sample {
   return { dateTime, value };
 }
 
-Deno.test("processCandlestick - partial update within tier duration", () => {
+Deno.test("processSample - partial update within tier duration", () => {
   const sample1 = createSample(2, testTime);
-  const sample2 = createSample(4, testTime.plus({ seconds: 30 }));
-  const samples: R.NonEmptyArray<Sample> = [sample1, sample2];
-  const candlestick = samplesToCandlestick(samples);
-
   const tier = createTier("1m", oneMinute, toCandlestick(sample1));
   const tiers: R.NonEmptyArray<Tier> = [tier];
 
-  const result = processCandlestick(tiers, candlestick);
+  const sample2 = createSample(4, testTime.plus({ seconds: 30 }));
+  const result = processSample(tiers, sample2);
 
   assertEquals(result.tiers.length, 1);
   assertEquals(result.tiers[0].name, "1m");
@@ -59,16 +55,14 @@ Deno.test("processCandlestick - partial update within tier duration", () => {
   assertEquals(result.eternal.close, 4);
 });
 
-Deno.test("processCandlestick - overflow triggers historization", () => {
+Deno.test("processSample - overflow triggers historization, creates synthetic historical candlesticks if necessary", () => {
   const sample1 = createSample(2, testTime);
-  const sample2 = createSample(4, testTime.plus({ minutes: 2 })); // Exceeds 1 minute duration
-  const samples: R.NonEmptyArray<Sample> = [sample1, sample2];
-  const candlestick = samplesToCandlestick(samples);
 
   const tier = createTier("1m", oneMinute, toCandlestick(sample1));
   const tiers: R.NonEmptyArray<Tier> = [tier];
 
-  const result = processCandlestick(tiers, candlestick);
+  const sample2 = createSample(4, testTime.plus({ minutes: 2 })); // Exceeds 1 minute duration
+  const result = processSample(tiers, sample2);
 
   assertEquals(result.tiers.length, 1);
   assertEquals(result.tiers[0].name, "1m");
@@ -77,17 +71,75 @@ Deno.test("processCandlestick - overflow triggers historization", () => {
   assertEquals(result.eternal.close, 4);
 });
 
-Deno.test("processCandlestick - multiple tiers with cascade", () => {
+Deno.test("processSample - should handle overflow with multiple tiers", () => {
+  // given a bases loaded 1 minute tier (4 historical minutes, 1 current)
+  const minuteOneSample = createSample(2, testTime.plus({ seconds: 30 }));
+  const minuteTwoSample = createSample(
+    4,
+    testTime.plus({ minutes: 1, seconds: 30 }),
+  );
+  const minuteThreeSample = createSample(
+    6,
+    testTime.plus({ minutes: 2, seconds: 30 }),
+  );
+  const minuteFourSample = createSample(
+    8,
+    testTime.plus({ minutes: 3, seconds: 30 }),
+  );
+  const minuteFiveSample = createSample(
+    10,
+    testTime.plus({ minutes: 4, seconds: 30 }),
+  );
+  const basesLoaded = [
+    minuteOneSample,
+    minuteTwoSample,
+    minuteThreeSample,
+    minuteFourSample,
+  ].map(toCandlestick);
+
+  const oneMinuteTier = createTier(
+    "1m",
+    oneMinute,
+    toCandlestick(minuteFiveSample),
+    basesLoaded,
+  );
+  const fiveMinuteTier = createTier(
+    "5m",
+    fiveMinutes,
+    toCandlestick(minuteFiveSample),
+  );
+  const tiers: R.NonEmptyArray<Tier> = [oneMinuteTier, fiveMinuteTier];
+
+  const minuteSixSample = createSample(
+    12,
+    testTime.plus({ minutes: 5, seconds: 30 }),
+  );
+  // when we process a sample in the sixth minute, the 1m tier should overflow
+  const result = processSample(tiers, minuteSixSample);
+
+  assertEquals(result.tiers.length, 2);
+  assertEquals(result.tiers[0].name, "1m");
+  assertEquals(result.tiers[1].name, "5m");
+  assertEquals(result.tiers[0].history.length, 0); // 1m tier should have 0 historized candlesticks
+  assertEquals(result.tiers[1].history.length, 1); // 5m tier should have 1 historized candlestick
+});
+
+Deno.test("processOverflow - creates synthetic historical candlesticks", () => {
   const sample1 = createSample(2, testTime);
-  const sample2 = createSample(4, testTime.plus({ minutes: 2 }));
-  const samples: R.NonEmptyArray<Sample> = [sample1, sample2];
-  const candlestick = samplesToCandlestick(samples);
+  const currentCandlestick = toCandlestick(sample1);
+  const distance = Duration.fromISO("PT2M");
 
-  const tier1 = createTier("1m", oneMinute, toCandlestick(sample1));
-  const tier2 = createTier("5m", fiveMinutes, toCandlestick(sample1));
-  const tiers: R.NonEmptyArray<Tier> = [tier1, tier2];
+  const tier1 = createTier("1m", oneMinute, currentCandlestick);
+  const tier2 = createTier("5m", fiveMinutes, currentCandlestick);
+  const restTiers: R.NonEmptyArray<Tier> = [tier2];
 
-  const result = processCandlestick(tiers, candlestick);
+  const sample2 = createSample(4, testTime); // time doesn't matter because it's processOverflow
+  const result = processOverflow(
+    tier1,
+    distance,
+    sample2,
+    restTiers,
+  );
 
   assertEquals(result.tiers.length, 2);
   assertEquals(result.tiers[0].name, "1m");
@@ -96,62 +148,36 @@ Deno.test("processCandlestick - multiple tiers with cascade", () => {
   assertEquals(result.tiers[1].history.length, 0); // 5m tier should not have historized yet
 });
 
-Deno.test("processOverflow - branch node scenario", () => {
+Deno.test("processOverflowLeaf - handles adding synthetic historical candlesticks", () => {
   const sample1 = createSample(2, testTime);
-  const sample2 = createSample(4, testTime.plus({ minutes: 2 }));
   const currentCandlestick = toCandlestick(sample1);
-  const newCandlestick = toCandlestick(sample2);
-  const distance = Duration.fromISO("PT2M");
-
-  const tier1 = createTier("1m", oneMinute, currentCandlestick);
-  const tier2 = createTier("5m", fiveMinutes, currentCandlestick);
-  const restTiers: R.NonEmptyArray<Tier> = [tier2];
-
-  const result = processOverflow(
-    tier1,
-    distance,
-    newCandlestick,
-    restTiers,
-  );
-
-  assertEquals(result.tiers.length, 2);
-  assertEquals(result.tiers[0].name, "1m");
-  assertEquals(result.tiers[1].name, "5m");
-  assertEquals(result.tiers[0].history.length, 3); // Should have 3 historized candlesticks
-});
-
-Deno.test("processOverflowLeaf - creates new bucket correctly", () => {
-  const sample1 = createSample(2, testTime);
-  const sample2 = createSample(4, testTime.plus({ minutes: 2 }));
-  const currentCandlestick = toCandlestick(sample1);
-  const newCandlestick = toCandlestick(sample2);
-  const historicalCandlestick = {
+  const generatedCandlestick = {
     ...currentCandlestick,
     closeAt: testTime.plus({ minutes: 1 }),
   };
 
   const tier = createTier("1m", oneMinute, currentCandlestick);
   const historicalCandlesticks: R.NonEmptyArray<Candlestick> = [
-    historicalCandlestick,
+    generatedCandlestick,
   ];
 
+  // because this is more than one tier duration away from test time, we expect one generated historical candlestick
+  const sample2 = createSample(4, testTime.plus({ minutes: 2 }));
   const result = processOverflowLeaf(
     tier,
-    newCandlestick,
+    sample2,
     historicalCandlesticks,
   );
 
   assertEquals(result.tiers.length, 1);
   assertEquals(result.tiers[0].current.close, 4);
-  assertEquals(result.tiers[0].current.openAt, historicalCandlestick.closeAt);
+  assertEquals(result.tiers[0].current.openAt, generatedCandlestick.closeAt);
   assertEquals(result.eternal.close, 4);
 });
 
-Deno.test("processOverflowBranch - cascades to child tiers", () => {
+Deno.test("processOverflowBranch - overflows to child tiers", () => {
   const sample1 = createSample(2, testTime);
-  const sample2 = createSample(4, testTime.plus({ minutes: 2 }));
   const currentCandlestick = toCandlestick(sample1);
-  const newCandlestick = toCandlestick(sample2);
   const historicalCandlestick = {
     ...currentCandlestick,
     closeAt: testTime.plus({ minutes: 1 }),
@@ -164,10 +190,11 @@ Deno.test("processOverflowBranch - cascades to child tiers", () => {
     historicalCandlestick,
   ];
 
+  const sample2 = createSample(4, testTime.plus({ minutes: 2 }));
   const result = processOverflowBranch(
     tier1,
     restTiers,
-    newCandlestick,
+    sample2,
     historicalCandlesticks,
   );
 
@@ -175,45 +202,28 @@ Deno.test("processOverflowBranch - cascades to child tiers", () => {
   assertEquals(result.tiers[0].name, "1m");
   assertEquals(result.tiers[1].name, "5m");
   assertEquals(result.tiers[0].history.length, 1);
+  assertEquals(result.tiers[1].history.length, 0);
 });
 
-Deno.test("processPartial - branch node scenario", () => {
+Deno.test("processPartial - handles multiple tiers", () => {
   const sample1 = createSample(2, testTime);
-  const sample2 = createSample(4, testTime.plus({ seconds: 30 }));
   const currentCandlestick = toCandlestick(sample1);
-  const newCandlestick = toCandlestick(sample2);
 
   const tier1 = createTier("1m", oneMinute, currentCandlestick);
   const tier2 = createTier("5m", fiveMinutes, currentCandlestick);
   const restTiers: R.NonEmptyArray<Tier> = [tier2];
 
+  const sample2 = createSample(4, testTime.plus({ seconds: 30 }));
   const result = processPartial(
     tier1,
     restTiers,
-    newCandlestick,
+    sample2,
   );
 
   assertEquals(result.tiers.length, 2);
   assertEquals(result.tiers[0].name, "1m");
   assertEquals(result.tiers[1].name, "5m");
   assertEquals(result.tiers[0].current.close, 4);
-});
-
-Deno.test("addSampleCandlestickToCurrent - merges candlesticks correctly", () => {
-  const sample1 = createSample(2, testTime);
-  const sample2 = createSample(6, testTime.plus({ seconds: 30 }));
-  const currentCandlestick = toCandlestick(sample1);
-  const newCandlestick = toCandlestick(sample2);
-
-  const tier = createTier("1m", oneMinute, currentCandlestick);
-  const result = addSampleCandlestickToCurrent(tier, newCandlestick);
-
-  assertEquals(result.current.open, 2);
-  assertEquals(result.current.close, 6);
-  assertEquals(result.current.high, 6);
-  assertEquals(result.current.low, 2);
-  assertEquals(result.name, "1m");
-  assertEquals(result.duration, oneMinute);
 });
 
 Deno.test("processPartialLeaf - returns tier with current as eternal", () => {
@@ -228,89 +238,35 @@ Deno.test("processPartialLeaf - returns tier with current as eternal", () => {
   assertEquals(result.eternal, candlestick);
 });
 
-Deno.test("processPartialBranch - cascades to child tiers", () => {
-  const sample1 = createSample(2, testTime);
-  const sample2 = createSample(4, testTime.plus({ seconds: 30 }));
-  const currentCandlestick = toCandlestick(sample1);
-  const newCandlestick = toCandlestick(sample2);
-
-  const tier1 = createTier("1m", oneMinute, currentCandlestick);
-  const tier2 = createTier("5m", fiveMinutes, currentCandlestick);
-  const restTiers: R.NonEmptyArray<Tier> = [tier2];
-
-  const updatedTier1 = addSampleCandlestickToCurrent(tier1, newCandlestick);
-  const result = processPartialBranch(updatedTier1, restTiers, newCandlestick);
-
-  assertEquals(result.tiers.length, 2);
-  assertEquals(result.tiers[0].name, "1m");
-  assertEquals(result.tiers[1].name, "5m");
-  assertEquals(result.tiers[0].current.close, 4);
-});
-
-Deno.test("processCandlestick - handles empty restTiers correctly", () => {
-  const sample1 = createSample(2, testTime);
-  const sample2 = createSample(4, testTime.plus({ minutes: 2 }));
-  const samples: R.NonEmptyArray<Sample> = [sample1, sample2];
-  const candlestick = samplesToCandlestick(samples);
-
-  const tier = createTier("1m", oneMinute, candlestick);
-  const tiers: R.NonEmptyArray<Tier> = [tier];
-
-  const result = processCandlestick(tiers, candlestick);
-
-  assertEquals(result.tiers.length, 1);
-  assertEquals(result.tiers[0].history.length, 3); // Should have 3 historized candlesticks
-  assertEquals(result.eternal.close, 4);
-});
-
-Deno.test("processCandlestick - handles multiple samples in sequence", () => {
-  const sample1 = createSample(2, testTime);
-  const sample2 = createSample(4, testTime.plus({ seconds: 30 }));
-  const sample3 = createSample(6, testTime.plus({ seconds: 45 }));
-  const samples: R.NonEmptyArray<Sample> = [sample1, sample2, sample3];
-  const candlestick = samplesToCandlestick(samples);
-
-  const tier = createTier("1m", oneMinute, candlestick);
-  const tiers: R.NonEmptyArray<Tier> = [tier];
-
-  const result = processCandlestick(tiers, candlestick);
-
-  assertEquals(result.tiers.length, 1);
-  assertEquals(result.tiers[0].current.close, 6);
-  assertEquals(result.tiers[0].current.high, 6);
-  assertEquals(result.tiers[0].current.low, 2);
-  assertEquals(result.eternal.close, 6);
-});
-
-Deno.test("processCandlestick - handles decreasing values", () => {
+Deno.test("processSample - handles decreasing values", () => {
   const sample1 = createSample(6, testTime);
   const sample2 = createSample(4, testTime.plus({ seconds: 30 }));
-  const sample3 = createSample(2, testTime.plus({ seconds: 45 }));
-  const samples: R.NonEmptyArray<Sample> = [sample1, sample2, sample3];
-  const candlestick = samplesToCandlestick(samples);
 
-  const tier = createTier("1m", oneMinute, candlestick);
+  const tier = createTier("1m", oneMinute, toCandlestick(sample2), [
+    toCandlestick(sample1),
+  ]);
   const tiers: R.NonEmptyArray<Tier> = [tier];
 
-  const result = processCandlestick(tiers, candlestick);
+  const sample3 = createSample(2, testTime.plus({ seconds: 45 })); // decreasing value
+  const result = processSample(tiers, sample3);
 
   assertEquals(result.tiers.length, 1);
   assertEquals(result.tiers[0].current.close, 2);
-  assertEquals(result.tiers[0].current.high, 6);
+  assertEquals(result.tiers[0].current.high, 4);
+  assertEquals(result.tiers[0].history[0].high, 6);
   assertEquals(result.tiers[0].current.low, 2);
+  assertEquals(result.tiers[0].history[0].low, 6);
   assertEquals(result.eternal.close, 2);
 });
 
-Deno.test("processCandlestick - handles exact duration boundary", () => {
+Deno.test("processSample - handles exact duration boundary", () => {
   const sample1 = createSample(2, testTime);
-  const sample2 = createSample(4, testTime.plus({ minutes: 1 })); // Exactly 1 minute later
-  const samples: R.NonEmptyArray<Sample> = [sample1, sample2];
-  const candlestick = samplesToCandlestick(samples);
 
-  const tier = createTier("1m", oneMinute, candlestick);
+  const tier = createTier("1m", oneMinute, toCandlestick(sample1));
   const tiers: R.NonEmptyArray<Tier> = [tier];
 
-  const result = processCandlestick(tiers, candlestick);
+  const sample2 = createSample(4, testTime.plus({ minutes: 1 })); // Exactly 1 minute later
+  const result = processSample(tiers, sample2);
 
   // Should trigger overflow since distance equals duration
   assertEquals(result.tiers.length, 1);
@@ -319,16 +275,14 @@ Deno.test("processCandlestick - handles exact duration boundary", () => {
   assertEquals(result.eternal.close, 4);
 });
 
-Deno.test("processCandlestick - preserves tier properties", () => {
+Deno.test("processSample - preserves tier properties", () => {
   const sample1 = createSample(2, testTime);
-  const sample2 = createSample(4, testTime.plus({ seconds: 30 }));
-  const samples: R.NonEmptyArray<Sample> = [sample1, sample2];
-  const candlestick = samplesToCandlestick(samples);
 
-  const tier = createTier("custom-tier", oneHour, candlestick);
+  const tier = createTier("custom-tier", oneHour, toCandlestick(sample1));
   const tiers: R.NonEmptyArray<Tier> = [tier];
 
-  const result = processCandlestick(tiers, candlestick);
+  const sample2 = createSample(4, testTime.plus({ seconds: 30 }));
+  const result = processSample(tiers, sample2);
 
   assertEquals(result.tiers.length, 1);
   assertEquals(result.tiers[0].name, "custom-tier");

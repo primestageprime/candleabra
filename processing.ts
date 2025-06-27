@@ -9,26 +9,23 @@ import {
   toHistoricalCandlesticks,
 } from "./utils.ts";
 
-export function processCandlestick(
+export function processSample(
   [tier, ...restTiers]: R.NonEmptyArray<Tier>,
-  candlestick: Candlestick,
+  sample: Sample,
 ): {
   tiers: R.NonEmptyArray<Tier>;
   eternal: Candlestick;
 } {
   console.log("processing tier", tier.name);
-  const { openAt, closeAt } = candlestick;
-  // const newestSampleCandlestick = toCandlestick(newestSample);
 
   const distance = getDistance(
     R.head(tier.history),
-    openAt,
-    closeAt,
+    tier.current.openAt,
+    sample.dateTime,
   );
   console.log(`distance: ${distance.as("seconds")}`);
-  const distanceExceedsTierDuration =
-    distance > tier.duration.as("milliseconds");
-  if (distanceExceedsTierDuration) {
+  const overflow = distance > tier.duration.as("milliseconds");
+  if (overflow) {
     console.log(
       "distance exceeds tier duration, historizing current:",
       JSON.stringify(tier.current),
@@ -37,7 +34,7 @@ export function processCandlestick(
     return processOverflow(
       tier,
       distance,
-      candlestick,
+      sample,
       restTiers as NonEmptyArray<Tier>,
     );
   } else {
@@ -46,7 +43,7 @@ export function processCandlestick(
     return processPartial(
       tier,
       restTiers as NonEmptyArray<Tier>,
-      candlestick,
+      sample,
     );
   }
 }
@@ -54,7 +51,7 @@ export function processCandlestick(
 export function processOverflow(
   tier: Tier,
   distance: Duration,
-  candlestick: Candlestick,
+  sample: Sample,
   restTiers: NonEmptyArray<Tier>,
 ): {
   tiers: NonEmptyArray<Tier>;
@@ -64,14 +61,14 @@ export function processOverflow(
     tier.current,
     tier.duration,
   );
-  const historicalCandlesticks = toHistoricalCandlesticks(
+  const newHistoricalCandlesticks = toHistoricalCandlesticks(
     newHistoricalCandlestick,
     tier.duration,
     distance,
   );
   console.log(
     "newHistoricalCandlesticks",
-    JSON.stringify(historicalCandlesticks),
+    JSON.stringify(newHistoricalCandlesticks),
   );
   if (R.isEmpty(restTiers)) {
     console.log("leaf node, new bucket");
@@ -82,8 +79,8 @@ export function processOverflow(
     // and set the samples to just the newest sample
     return processOverflowLeaf(
       tier,
-      candlestick,
-      historicalCandlesticks,
+      sample,
+      newHistoricalCandlesticks,
     );
   } else {
     console.log("branch, new bucket");
@@ -94,24 +91,25 @@ export function processOverflow(
     return processOverflowBranch(
       tier,
       restTiers as NonEmptyArray<Tier>,
-      candlestick,
-      historicalCandlesticks,
+      sample,
+      newHistoricalCandlesticks,
     );
   }
 }
 
 export function processOverflowLeaf(
   tier: Tier,
-  candlestick: Candlestick,
+  sample: Sample,
   historicalCandlesticks: NonEmptyArray<Candlestick>,
 ): {
   tiers: NonEmptyArray<Tier>;
   eternal: Candlestick;
 } {
+  const sampleCandlestick = toCandlestick(sample);
   // todo not sure about this... does current already contain the "samples" candlestick??
   const eternal = reduceCandlesticks([
     tier.current,
-    candlestick,
+    sampleCandlestick,
   ]);
   // console.log(
   //   `newestSampleCandlestick: ${JSON.stringify(newestSampleCandlestick)}`,
@@ -133,19 +131,18 @@ export function processOverflowLeaf(
   // the current openAt is either the newest history's closeAt or, if this is the first sample, that sample's datetime
   const newHistoricalCandlestick = R.last(historicalCandlesticks);
   const currentOpenAt = newHistoricalCandlestick?.closeAt ||
-    candlestick.closeAt;
+    sampleCandlestick.openAt;
   const newCurrent = {
-    ...candlestick,
+    ...sampleCandlestick,
     openAt: currentOpenAt,
   };
   console.log(
     `leaf node new bucket: newCurrent: ${JSON.stringify(newCurrent)}`,
   );
-  const history = [...historicalCandlesticks]; // todo do we need this? eternal should handle history in this case
   return {
     tiers: [{
       ...tier,
-      history,
+      history: historicalCandlesticks,
       current: newCurrent,
     }],
     eternal,
@@ -155,25 +152,21 @@ export function processOverflowLeaf(
 export function processOverflowBranch(
   tier: Tier,
   restTiers: NonEmptyArray<Tier>,
-  candlestick: Candlestick,
+  sample: Sample,
   historicalCandlesticks: NonEmptyArray<Candlestick>,
 ): {
   tiers: NonEmptyArray<Tier>;
   eternal: Candlestick;
 } {
-  const recursed = processCandlestick(
+  const recursed = processSample(
     restTiers as NonEmptyArray<Tier>,
-    candlestick,
+    sample,
   );
   const history = [...tier.history, ...historicalCandlesticks];
-  const newCurrent = toCandlestick({
-    dateTime: candlestick.closeAt,
-    value: candlestick.close,
-  });
   const newCurrentTier = {
     ...tier,
     history,
-    current: newCurrent,
+    current: toCandlestick(sample),
   };
   return {
     tiers: [newCurrentTier, ...recursed.tiers],
@@ -184,16 +177,14 @@ export function processOverflowBranch(
 export function processPartial(
   tier: Tier,
   restTiers: NonEmptyArray<Tier>,
-  candlestick: Candlestick,
+  sample: Sample,
 ): {
   tiers: NonEmptyArray<Tier>;
   eternal: Candlestick;
 } {
-  // The candlestick parameter already represents all samples combined,
-  // so we should use it directly instead of trying to merge with current
   const newCurrentTier = {
     ...tier,
-    current: candlestick,
+    current: reduceCandlesticks([tier.current, toCandlestick(sample)]),
   };
 
   if (R.isEmpty(restTiers)) {
@@ -207,7 +198,7 @@ export function processPartial(
     return processPartialBranch(
       newCurrentTier,
       restTiers as NonEmptyArray<Tier>,
-      candlestick,
+      sample,
     );
   }
 }
@@ -227,14 +218,14 @@ export function processPartialLeaf(
 export function processPartialBranch(
   currentTier: Tier,
   tiers: NonEmptyArray<Tier>,
-  candlestick: Candlestick,
+  sample: Sample,
 ): {
   tiers: NonEmptyArray<Tier>;
   eternal: Candlestick;
 } {
-  const recursed = processCandlestick(
+  const recursed = processSample(
     tiers,
-    candlestick,
+    sample,
   );
   return {
     tiers: [currentTier, ...recursed.tiers],
