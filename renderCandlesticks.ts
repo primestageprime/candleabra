@@ -146,7 +146,7 @@ export function renderSmartCandlesticks(
 ) {
   let display: (Candlestick | null)[];
   let omitted = 0;
-  if (candlesticks.length <= 4) {
+  if (candlesticks.length <= DETAIL_MARGIN * 2 + 1) {
     display = candlesticks;
   } else {
     omitted = candlesticks.length - 4;
