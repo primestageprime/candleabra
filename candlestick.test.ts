@@ -1,6 +1,6 @@
 import * as R from "npm:ramda@0.30.1";
 import { assertEquals } from "jsr:@std/assert";
-import { processValueTwoFive } from "./candlestick.ts";
+import { processValueTwoFive } from "./index.ts";
 import type { Accumulator } from "./types.d.ts";
 const values = [1, 1, 1, 1, 1, 1, 1, 9, 9, 1, 1, 1, 9, 1, 1, 1, 1, 1, 1, 1];
 
