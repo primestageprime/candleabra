@@ -18,34 +18,34 @@ const atomics = R.map(R.apply(makeSample), [
   [1, 120],
   [5, 121],
   [3, 150],
-  // [1, 180],
-  // [5, 181],
-  // [3, 210],
-  // [1, 240],
-  // [5, 241],
-  // [3, 270],
-  // [1, 300],
-  // [5, 301],
-  // [3, 330],
-  // [1, 360],
-  // [5, 361],
-  // [3, 390],
-  // [1, 420],
-  // [5, 421],
-  // [20, 2000],
-  // [10, 2001],
-  // [20, 2002],
-  // [10, 2003],
-  // [20, 2004],
-  // [10, 2005],
-  // [20, 2006],
-  // [6, 60 * 60 * 5],
-  // [10, 60 * 60 * 7],
-  // [20, 60 * 60 * 8],
-  // [10, 60 * 60 * 9],
-  // [20, 60 * 60 * 10],
-  // [10, 60 * 60 * 11],
-  // [20, 60 * 60 * 12],
+  [1, 180],
+  [5, 181],
+  [3, 210],
+  [1, 240],
+  [5, 241],
+  [3, 270],
+  [1, 300],
+  [5, 301],
+  [3, 330],
+  [1, 360],
+  [5, 361],
+  [3, 390],
+  [1, 420],
+  [5, 421],
+  [20, 2000],
+  [10, 2001],
+  [20, 2002],
+  [10, 2003],
+  [20, 2004],
+  [10, 2005],
+  [20, 2006],
+  [6, 60 * 60 * 5],
+  [10, 60 * 60 * 7],
+  [20, 60 * 60 * 8],
+  [10, 60 * 60 * 9],
+  [20, 60 * 60 * 10],
+  [10, 60 * 60 * 11],
+  [20, 60 * 60 * 12],
 ]);
 
 
@@ -177,6 +177,7 @@ class MultiTierProcessor {
     current: Candlestick | null;
     history: Candlestick[];
     name: string;
+    samples: Sample[]; // Track samples in current bucket for proper time weighting
   }>;
   private atomicSamples: Sample[] = [];
   
@@ -209,6 +210,7 @@ class MultiTierProcessor {
         current: null,
         history: [],
         name: granularity,
+        samples: [],
       };
     });
   }
@@ -234,13 +236,13 @@ class MultiTierProcessor {
       if (!tier.current) {
         // First sample for this tier - create proper bucket boundaries
         const bucketStart = this.getBucketStart(sample.dateTime, tier.duration);
-        const bucketEnd = bucketStart.plus(tier.duration);
         
         tier.current = {
           ...sampleCandlestick,
           openAt: bucketStart,
-          closeAt: bucketEnd,
+          closeAt: sample.dateTime, // Use actual sample time for current candlestick
         };
+        tier.samples = [sample];
         tierResults.push(tier.current);
         continue;
       }
@@ -251,29 +253,36 @@ class MultiTierProcessor {
       
       if (bucketStart.equals(currentBucketStart)) {
         // Same bucket - update current candlestick
+        tier.samples.push(sample);
+        
         tier.current = {
           open: tier.current.open,
           close: sampleCandlestick.close,
           high: Math.max(tier.current.high, sampleCandlestick.high),
           low: Math.min(tier.current.low, sampleCandlestick.low),
-          mean: this.calculateTimeWeightedMeanForBucket(tier.current, sampleCandlestick),
+          mean: this.calculateTimeWeightedMeanForSamples(tier.samples),
           openAt: tier.current.openAt,
-          closeAt: tier.current.closeAt, // Keep the bucket end time
+          closeAt: sample.dateTime, // Use actual sample time for current candlestick
         };
       } else {
-        // New bucket - historize current and start new
-        tier.history.push(tier.current);
+        // New bucket - historize current with full duration and start new
+        const bucketEnd = currentBucketStart.plus(tier.duration);
+        const completedCandlestick = {
+          ...tier.current,
+          closeAt: bucketEnd, // Use full bucket duration for completed candlestick
+        };
+        tier.history.push(completedCandlestick);
         
         // Prune old history that's no longer needed for higher tiers
         this.pruneHistory(i);
         
-        // Create new bucket with proper boundaries
-        const bucketEnd = bucketStart.plus(tier.duration);
+        // Create new bucket with actual sample time
         tier.current = {
           ...sampleCandlestick,
           openAt: bucketStart,
-          closeAt: bucketEnd,
+          closeAt: sample.dateTime, // Use actual sample time for current candlestick
         };
+        tier.samples = [sample];
       }
       
       tierResults.push(tier.current);
@@ -292,11 +301,37 @@ class MultiTierProcessor {
     return DateTime.fromMillis(bucketStartMillis);
   }
   
-  private calculateTimeWeightedMeanForBucket(existing: Candlestick, newSample: Candlestick): number {
-    // For time-weighted mean, we need to consider the actual time each sample represents
-    // Since we're in the same bucket, we can use a simple average for now
-    // A more sophisticated approach would track individual sample durations
-    return (existing.mean + newSample.mean) / 2;
+  private calculateTimeWeightedMeanForSamples(samples: Sample[]): number {
+    if (samples.length === 1) {
+      return samples[0].value;
+    }
+    
+    let totalWeightedValue = 0;
+    let totalDuration = 0;
+    
+    for (let i = 0; i < samples.length; i++) {
+      const sample = samples[i];
+      let duration: number;
+      
+      if (i === samples.length - 1) {
+        // Last sample - duration is 0 (instantaneous)
+        duration = 0;
+      } else {
+        // Duration from this sample to the next sample
+        const nextSample = samples[i + 1];
+        duration = nextSample.dateTime.diff(sample.dateTime, "milliseconds").as("milliseconds");
+      }
+      
+      totalWeightedValue += sample.value * duration;
+      totalDuration += duration;
+    }
+    
+    // If no duration, return simple average
+    if (totalDuration === 0) {
+      return samples.reduce((sum, s) => sum + s.value, 0) / samples.length;
+    }
+    
+    return totalWeightedValue / totalDuration;
   }
   
   private pruneHistory(tierIndex: number): void {
@@ -347,28 +382,64 @@ renderSmartCandlesticks(daySamples, "1d");
 console.log("=== Streaming Multi-Tier Processing ===");
 const processor = new MultiTierProcessor(["1m", "5m", "1h", "1d"]);
 
-// Process samples one by one and show each iteration
-for (let i = 0; i < atomics.length; i++) {
-  const [value, offset] = [atomics[i].open, atomics[i].openAt.diff(baseTime, "seconds").as("seconds")];
-  const sample = toSample(value, baseTime.plus({ seconds: offset }));
+// Interactive streaming - press space to advance
+async function runInteractiveStreaming() {
+  const decoder = new TextDecoder();
   
-  console.log(`\n--- Iteration ${i + 1}: Sample ${value} at ${sample.dateTime.toFormat("HH:mm:ss")} ---`);
+  // Set up stdin for raw mode
+  const stdin = Deno.stdin;
+  await stdin.setRaw(true);
   
-  const results = processor.processSample(sample);
-  
-  // Display atomic samples
-  console.log("Atomic samples:");
-  const atomicCandlesticks = results.atomics.map(sample => toCandlestick(sample));
-  renderSmartCandlesticks(atomicCandlesticks, "1s");
-  
-  // Display current state of each tier
-  const currentResults = processor.getResults();
-  currentResults.forEach(({ name, candlesticks }) => {
-    if (candlesticks.length > 0) {
-      console.log(`${name} samples:`);
-      renderSmartCandlesticks(candlesticks, name);
+  try {
+    for (let i = 0; i < atomics.length; i++) {
+      const [value, offset] = [atomics[i].open, atomics[i].openAt.diff(baseTime, "seconds").as("seconds")];
+      const sample = toSample(value, baseTime.plus({ seconds: offset }));
+      
+      console.log(`\n--- Iteration ${i + 1}: Sample ${value} at ${sample.dateTime.toFormat("HH:mm:ss")} ---`);
+      
+      const results = processor.processSample(sample);
+      
+      // Display atomic samples
+      console.log("Atomic samples:");
+      const atomicCandlesticks = results.atomics.map(sample => toCandlestick(sample));
+      renderSmartCandlesticks(atomicCandlesticks, "1s");
+      
+      // Display current state of each tier
+      const currentResults = processor.getResults();
+      currentResults.forEach(({ name, candlesticks }) => {
+        if (candlesticks.length > 0) {
+          console.log(`${name} samples:`);
+          renderSmartCandlesticks(candlesticks, name);
+        }
+      });
+      
+      if (i < atomics.length - 1) {
+        console.log("\nPress SPACE to continue to next iteration...");
+        
+        // Wait for space key
+        while (true) {
+          const buffer = new Uint8Array(1);
+          await stdin.read(buffer);
+          const char = decoder.decode(buffer);
+          
+          if (char === " ") {
+            break;
+          } else if (char === "\u0003") { // Ctrl+C
+            console.log("\nExiting...");
+            return;
+          }
+        }
+      }
+      
+      console.log("=".repeat(80));
     }
-  });
-  
-  console.log("=".repeat(80));
+    
+    console.log("\nStreaming complete!");
+  } finally {
+    // Restore stdin to normal mode
+    await stdin.setRaw(false);
+  }
 }
+
+// Run the interactive streaming
+await runInteractiveStreaming();
