@@ -322,6 +322,7 @@ Deno.test(
     ];
 
     const actual = addSamplesToCandelabra(samples, oneMinuteCandelabra);
+    
     const firstMinCloseAt = testTime.plus(oneMinute);
     const firstMinCandlestick = {
       open: 1,

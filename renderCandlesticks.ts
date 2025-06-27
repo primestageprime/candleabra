@@ -1,10 +1,12 @@
 import type { Candlestick } from "./types.d.ts";
 import { DateTime } from "luxon";
+import * as R from "ramda";
 
 const CELL_WIDTH = 10;
 const YELLOW = "\x1b[33m";
 const RESET = "\x1b[0m";
 const BORDER = "\x1b[36m"; // Cyan for borders
+const DETAIL_MARGIN = 3
 
 function formatCell(
   value: string,
@@ -23,9 +25,7 @@ function formatCell(
 }
 
 function formatNumber(value: number): string {
-  let str = value.toFixed(3); // e.g. 1.234
-  if (str.length > 5) str = value.toPrecision(5);
-  if (str.length > 5) str = value.toExponential(2); // fallback
+  let str = value.toFixed(2); // e.g. 1.23
   if (str.length > 5) str = str.slice(0, 5);
   return formatCell(str, CELL_WIDTH, "center");
 }
@@ -151,11 +151,9 @@ export function renderSmartCandlesticks(
   } else {
     omitted = candlesticks.length - 4;
     display = [
-      candlesticks[0],
-      candlesticks[1],
+      ...R.take(DETAIL_MARGIN, candlesticks),
       null, // placeholder for ellipsis
-      candlesticks[candlesticks.length - 2],
-      candlesticks[candlesticks.length - 1],
+      ...R.takeLast(DETAIL_MARGIN, candlesticks),
     ];
   }
   // Render each grid, using the ellipsis function for null values

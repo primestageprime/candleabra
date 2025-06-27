@@ -5,7 +5,8 @@
   "types": "./types.d.ts",
   "tasks": {
     "test": "deno test --allow-read",
-    "render-candlesticks": "deno run --allow-run --allow-read --allow-write renderCandlesticks.ts"
+    "render-candlesticks": "deno run --allow-run --allow-read --allow-write renderCandlesticks.ts",
+    "demo": "deno run --allow-run --allow-read --allow-write demo.ts"
   },
   "imports": {
     "@types/ramda": "npm:@types/ramda@^0.30.2",
