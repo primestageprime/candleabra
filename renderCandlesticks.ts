@@ -7,6 +7,7 @@ const YELLOW = "\x1b[33m";
 const RESET = "\x1b[0m";
 const BORDER = "\x1b[36m"; // Cyan for borders
 const DETAIL_MARGIN = 3
+const WHITE = "\x1b[37m"; // Added for partial candlesticks
 
 function formatCell(
   value: string,
@@ -37,40 +38,47 @@ function formatTime(dt: DateTime): string {
 function renderCandlestickGrid(
   candlestick: Candlestick,
   granularity: string = "1s",
+  isPartial: boolean = false,
 ): string[] {
   // Top, mid, bottom borders
-  const top = BORDER + "┌" + "─".repeat(CELL_WIDTH) + "┬" +
-    "─".repeat(CELL_WIDTH) + "┬" + "─".repeat(CELL_WIDTH) + "┐" + RESET;
+  const borderStyle = isPartial ? "═" : "─";
+  const cornerStyle = isPartial ? "╔╗╚╝" : "┌┐└┘";
+  
+  const top = BORDER + cornerStyle[0] + borderStyle.repeat(CELL_WIDTH) + "┬" +
+    borderStyle.repeat(CELL_WIDTH) + "┬" + borderStyle.repeat(CELL_WIDTH) + cornerStyle[1] + RESET;
   const mid = BORDER + "├" + "─".repeat(CELL_WIDTH) + "┼" +
     "─".repeat(CELL_WIDTH) + "┼" + "─".repeat(CELL_WIDTH) + "┤" + RESET;
-  const bot = BORDER + "└" + "─".repeat(CELL_WIDTH) + "┴" +
-    "─".repeat(CELL_WIDTH) + "┴" + "─".repeat(CELL_WIDTH) + "┘" + RESET;
+  const bot = BORDER + cornerStyle[2] + borderStyle.repeat(CELL_WIDTH) + "┴" +
+    borderStyle.repeat(CELL_WIDTH) + "┴" + borderStyle.repeat(CELL_WIDTH) + cornerStyle[3] + RESET;
+
+  // Color for partial candlesticks
+  const textColor = isPartial ? WHITE : YELLOW;
 
   // Row 1: [granularity, high, duration]
   const row1 = BORDER + "│" + RESET +
-    YELLOW + formatCell(granularity, CELL_WIDTH) + RESET +
+    textColor + formatCell(granularity, CELL_WIDTH) + RESET +
     BORDER + "│" + RESET +
-    YELLOW + formatNumber(candlestick.high) + RESET +
+    textColor + formatNumber(candlestick.high) + RESET +
     BORDER + "│" + RESET +
-    YELLOW + formatCell(granularity, CELL_WIDTH) + RESET +
+    textColor + formatCell(granularity, CELL_WIDTH) + RESET +
     BORDER + "│" + RESET;
 
   // Row 2: [open, mean, close]
   const row2 = BORDER + "│" + RESET +
-    YELLOW + formatNumber(candlestick.open) + RESET +
+    textColor + formatNumber(candlestick.open) + RESET +
     BORDER + "│" + RESET +
-    YELLOW + formatNumber(candlestick.mean) + RESET +
+    textColor + formatNumber(candlestick.mean) + RESET +
     BORDER + "│" + RESET +
-    YELLOW + formatNumber(candlestick.close) + RESET +
+    textColor + formatNumber(candlestick.close) + RESET +
     BORDER + "│" + RESET;
 
   // Row 3: [start, low, end]
   const row3 = BORDER + "│" + RESET +
-    YELLOW + formatTime(candlestick.openAt) + RESET +
+    textColor + formatTime(candlestick.openAt) + RESET +
     BORDER + "│" + RESET +
-    YELLOW + formatNumber(candlestick.low) + RESET +
+    textColor + formatNumber(candlestick.low) + RESET +
     BORDER + "│" + RESET +
-    YELLOW + formatTime(candlestick.closeAt) + RESET +
+    textColor + formatTime(candlestick.closeAt) + RESET +
     BORDER + "│" + RESET;
 
   return [top, row1, mid, row2, mid, row3, bot];
@@ -80,7 +88,10 @@ function renderMultipleCandlesticks(
   candlesticks: Candlestick[],
   granularity: string = "1s",
 ) {
-  const grids = candlesticks.map((c) => renderCandlestickGrid(c, granularity));
+  const grids = candlesticks.map((c, index) => {
+    const isPartial = index === candlesticks.length - 1; // Last candlestick is partial
+    return renderCandlestickGrid(c, granularity, isPartial);
+  });
   for (let i = 0; i < grids[0].length; i++) {
     const line = grids.map((g) => g[i]).join("  -  ");
     console.log(line);
@@ -158,7 +169,11 @@ export function renderSmartCandlesticks(
   }
   // Render each grid, using the ellipsis function for null values
   const grids = display.map((c, i) => {
-    if (c) return renderCandlestickGrid(c, granularity);
+    if (c) {
+      // Check if this candlestick is the last one in the original array
+      const isPartial = c === candlesticks[candlesticks.length - 1];
+      return renderCandlestickGrid(c, granularity, isPartial);
+    }
     return renderEllipsisBox(omitted);
   });
   for (let i = 0; i < grids[0].length; i++) {
