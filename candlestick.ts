@@ -47,7 +47,10 @@ export const reduceCandlesticks: (
   }),
 );
 
-export const toCandlestick: (sample: Sample) => Candlestick = (sample) => {
+/**
+ * Creates a candlestick from a single sample
+ */
+export function toCandlestick(sample: Sample): Candlestick {
   return {
     open: sample.value,
     close: sample.value,
@@ -57,7 +60,71 @@ export const toCandlestick: (sample: Sample) => Candlestick = (sample) => {
     openAt: sample.dateTime,
     closeAt: sample.dateTime,
   };
-};
+}
+
+/**
+ * Creates a sample from a value and datetime
+ */
+export function toSample(value: number, dateTime: DateTime): Sample {
+  return { dateTime, value };
+}
+
+/**
+ * Calculates time-weighted mean from a list of samples
+ */
+export function calculateTimeWeightedMean(samples: Sample[]): number {
+  if (samples.length === 1) {
+    return samples[0].value;
+  }
+  
+  let totalWeightedValue = 0;
+  let totalDuration = 0;
+  
+  for (let i = 0; i < samples.length; i++) {
+    const sample = samples[i];
+    let duration: number;
+    
+    if (i === samples.length - 1) {
+      // Last sample - duration is 0 (instantaneous)
+      duration = 0;
+    } else {
+      // Duration from this sample to the next sample
+      const nextSample = samples[i + 1];
+      duration = nextSample.dateTime.diff(sample.dateTime, "milliseconds").as("milliseconds");
+    }
+    
+    totalWeightedValue += sample.value * duration;
+    totalDuration += duration;
+  }
+  
+  // If no duration, return simple average
+  if (totalDuration === 0) {
+    return samples.reduce((sum, s) => sum + s.value, 0) / samples.length;
+  }
+  
+  return totalWeightedValue / totalDuration;
+}
+
+/**
+ * Creates a candlestick from a list of samples with proper OHLC values
+ */
+export function samplesToCandlestick(samples: Sample[], openAt: DateTime, closeAt: DateTime): Candlestick {
+  if (samples.length === 0) {
+    throw new Error("Cannot create candlestick from empty samples");
+  }
+  
+  const values = R.map(R.prop('value'), samples);
+  
+  return {
+    open: R.head(values)!,
+    close: R.last(values)!,
+    high: Math.max(...values),
+    low: Math.min(...values),
+    mean: calculateTimeWeightedMean(samples),
+    openAt,
+    closeAt,
+  };
+}
 
 export const toTier = (
   tierConfig: TierConfig,
@@ -69,9 +136,6 @@ export const toTier = (
     current: candlestick,
   };
 };
-export function toSample(value: number, dateTime: DateTime): Sample {
-  return { dateTime, value };
-}
 
 export function toCandelabra(
   sample: Sample,
@@ -165,16 +229,6 @@ export function addSampleToCandelabra(
     tiers: tiers,
     eternal,
   };
-}
-
-export function samplesToCandlestick(
-  samples: R.NonEmptyArray<Sample>,
-): Candlestick {
-  const updatedCandlesticks = R.map(
-    toCandlestick,
-    samples,
-  ) as R.NonEmptyArray<Candlestick>;
-  return reduceCandlesticks(updatedCandlesticks);
 }
 
 export function processSamples(

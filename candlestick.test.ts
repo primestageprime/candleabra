@@ -6,8 +6,10 @@ import {
   toCandelabra,
   toCandlestick,
   toSample,
+  calculateTimeWeightedMean,
+  samplesToCandlestick,
 } from "./candlestick.ts";
-import { assertEquals } from "jsr:@std/assert";
+import { assertEquals, assertThrows } from "https://deno.land/std@0.208.0/assert/mod.ts";
 import { renderSmartCandlesticks } from "./renderCandlesticks.ts";
 import type {
   Candelabra,
@@ -29,10 +31,93 @@ const oneMinuteCandelabra = toCandelabra(defaultSample, [
   oneMinuteTier,
 ]);
 
+const baseTime = DateTime.fromISO("2024-01-01T10:00:00Z");
+
 Deno.test("toSample", async (t) => {
-  await t.step("toSample", () => {
-    const sample = toSample(1, testTime);
-    assertEquals(sample, { dateTime: testTime, value: 1 });
+  await t.step("should create sample from value and datetime", () => {
+    const result = toSample(42, baseTime);
+    assertEquals(result.value, 42);
+    assertEquals(result.dateTime, baseTime);
+  });
+});
+
+Deno.test("toCandlestick", async (t) => {
+  await t.step("should create candlestick from sample", () => {
+    const sample = toSample(42, baseTime);
+    const result = toCandlestick(sample);
+    
+    assertEquals(result.open, 42);
+    assertEquals(result.close, 42);
+    assertEquals(result.high, 42);
+    assertEquals(result.low, 42);
+    assertEquals(result.mean, 42);
+    assertEquals(result.openAt, baseTime);
+    assertEquals(result.closeAt, baseTime);
+  });
+});
+
+Deno.test("calculateTimeWeightedMean", async (t) => {
+  await t.step("should return value for single sample", () => {
+    const samples = [toSample(42, baseTime)];
+    const result = calculateTimeWeightedMean(samples);
+    assertEquals(result, 42);
+  });
+
+  await t.step("should calculate time-weighted mean for multiple samples", () => {
+    const samples = [
+      toSample(1, baseTime),
+      toSample(50, baseTime.plus({ seconds: 1 })),
+      toSample(3, baseTime.plus({ seconds: 30 })),
+      toSample(1, baseTime.plus({ seconds: 60 })),
+    ];
+    
+    const result = calculateTimeWeightedMean(samples);
+    
+    // Expected calculation:
+    // Value 1: duration 1 second
+    // Value 50: duration 29 seconds  
+    // Value 3: duration 30 seconds
+    // Value 1: duration 0 seconds
+    // Total weighted: (1×1 + 50×29 + 3×30 + 1×0) = 1541
+    // Total duration: 60 seconds
+    // Mean: 1541 / 60 = 25.68
+    assertEquals(result, 25.68);
+  });
+
+  await t.step("should handle samples with no duration", () => {
+    const samples = [
+      toSample(1, baseTime),
+      toSample(2, baseTime), // Same time
+    ];
+    
+    const result = calculateTimeWeightedMean(samples);
+    assertEquals(result, 1.5); // Simple average
+  });
+});
+
+Deno.test("samplesToCandlestick", async (t) => {
+  await t.step("should create candlestick from samples", () => {
+    const samples = [
+      toSample(1, baseTime),
+      toSample(50, baseTime.plus({ seconds: 1 })),
+      toSample(3, baseTime.plus({ seconds: 30 })),
+    ];
+    
+    const openAt = baseTime;
+    const closeAt = baseTime.plus({ minutes: 1 });
+    
+    const result = samplesToCandlestick(samples, openAt, closeAt);
+    
+    assertEquals(result.open, 1);
+    assertEquals(result.close, 3);
+    assertEquals(result.high, 50);
+    assertEquals(result.low, 1);
+    assertEquals(result.openAt, openAt);
+    assertEquals(result.closeAt, closeAt);
+  });
+
+  await t.step("should throw error for empty samples", () => {
+    assertThrows(() => samplesToCandlestick([], baseTime, baseTime), Error, "Cannot create candlestick from empty samples");
   });
 });
 

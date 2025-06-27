@@ -3,19 +3,17 @@ import { DateTime, Duration } from "luxon";
 import { renderSmartCandlesticks } from "./renderCandlesticks.ts";
 import * as R from "ramda";
 import type { Candlestick, Sample } from "./types.d.ts";
+import { createProcessor, processSample, getResults } from "./processor.ts";
 
 const baseTime = DateTime.fromISO("2025-06-27T00:00:00Z");
 
 const makeSample = (value: number, offset: number) => toCandlestick(toSample(value, baseTime.plus({ seconds: offset })));
 
-const atomics = R.map(R.apply(makeSample), [
+const atomics = [
   [1, 0],
   [50, 1],
   [3, 30],
   [1, 60],
-  [50, 61],
-  [3, 90],
-  [1, 120],
   [5, 121],
   [3, 150],
   [1, 180],
@@ -46,7 +44,7 @@ const atomics = R.map(R.apply(makeSample), [
   [20, 60 * 60 * 10],
   [10, 60 * 60 * 11],
   [20, 60 * 60 * 12],
-]);
+].map(([value, offset]) => toSample(value, baseTime.plus({ seconds: offset })));
 
 
 function sliceCandlesticksByGranularity(candlesticks: Candlestick[], granularity: string): Candlestick[] {
@@ -170,218 +168,6 @@ function calculateTimeWeightedMean(candlesticks: Candlestick[]): number {
   return totalDuration > 0 ? totalWeightedValue / totalDuration : 0;
 }
 
-// Streaming multi-tier candlestick processor
-class MultiTierProcessor {
-  private tiers: Array<{
-    duration: Duration;
-    current: Candlestick | null;
-    history: Candlestick[];
-    name: string;
-    samples: Sample[]; // Track samples in current bucket for proper time weighting
-  }>;
-  private atomicSamples: Sample[] = [];
-  
-  constructor(granularities: string[]) {
-    this.tiers = granularities.map(granularity => {
-      const match = granularity.match(/^(\d+)([mhd])$/);
-      if (!match) {
-        throw new Error(`Invalid granularity: ${granularity}`);
-      }
-      const [, amountStr, unit] = match;
-      const amount = parseInt(amountStr, 10);
-      
-      let duration: Duration;
-      switch (unit) {
-        case 'm':
-          duration = Duration.fromObject({ minutes: amount });
-          break;
-        case 'h':
-          duration = Duration.fromObject({ hours: amount });
-          break;
-        case 'd':
-          duration = Duration.fromObject({ days: amount });
-          break;
-        default:
-          throw new Error(`Unsupported unit: ${unit}`);
-      }
-      
-      return {
-        duration,
-        current: null,
-        history: [],
-        name: granularity,
-        samples: [],
-      };
-    });
-  }
-  
-  processSample(sample: Sample): { atomics: Sample[], tierResults: Candlestick[] } {
-    // Add to atomic samples
-    this.atomicSamples.push(sample);
-    
-    // Keep only enough atomic samples to generate one 1-minute candlestick
-    if (this.tiers.length > 0) {
-      const oneMinuteDuration = Duration.fromObject({ minutes: 1 });
-      const cutoffTime = sample.dateTime.minus(oneMinuteDuration);
-      this.atomicSamples = this.atomicSamples.filter(s => s.dateTime >= cutoffTime);
-    }
-    
-    const tierResults: Candlestick[] = [];
-    
-    // Process each tier
-    for (let i = 0; i < this.tiers.length; i++) {
-      const tier = this.tiers[i];
-      const sampleCandlestick = toCandlestick(sample);
-      
-      if (!tier.current) {
-        // First sample for this tier - create proper bucket boundaries
-        const bucketStart = this.getBucketStart(sample.dateTime, tier.duration);
-        
-        tier.current = {
-          ...sampleCandlestick,
-          openAt: bucketStart,
-          closeAt: sample.dateTime, // Use actual sample time for current candlestick
-        };
-        tier.samples = [sample];
-        tierResults.push(tier.current);
-        continue;
-      }
-      
-      // Check if this sample starts a new bucket
-      const bucketStart = this.getBucketStart(sample.dateTime, tier.duration);
-      const currentBucketStart = this.getBucketStart(tier.current.openAt, tier.duration);
-      
-      if (bucketStart.equals(currentBucketStart)) {
-        // Same bucket - update current candlestick
-        tier.samples.push(sample);
-        
-        tier.current = {
-          open: tier.current.open,
-          close: sampleCandlestick.close,
-          high: Math.max(tier.current.high, sampleCandlestick.high),
-          low: Math.min(tier.current.low, sampleCandlestick.low),
-          mean: this.calculateTimeWeightedMeanForSamples(tier.samples),
-          openAt: tier.current.openAt,
-          closeAt: sample.dateTime, // Use actual sample time for current candlestick
-        };
-      } else {
-        // New bucket - historize current with full duration and start new
-        const bucketEnd = currentBucketStart.plus(tier.duration);
-        const completedCandlestick = {
-          ...tier.current,
-          closeAt: bucketEnd, // Use full bucket duration for completed candlestick
-        };
-        tier.history.push(completedCandlestick);
-        
-        // Prune old history that's no longer needed for higher tiers
-        this.pruneHistory(i);
-        
-        // Create new bucket with actual sample time
-        tier.current = {
-          ...sampleCandlestick,
-          openAt: bucketStart,
-          closeAt: sample.dateTime, // Use actual sample time for current candlestick
-        };
-        tier.samples = [sample];
-      }
-      
-      tierResults.push(tier.current);
-    }
-    
-    return {
-      atomics: [...this.atomicSamples],
-      tierResults
-    };
-  }
-  
-  private getBucketStart(dateTime: DateTime, duration: Duration): DateTime {
-    const durationMillis = duration.as("milliseconds");
-    const dateTimeMillis = dateTime.toMillis();
-    const bucketStartMillis = Math.floor(dateTimeMillis / durationMillis) * durationMillis;
-    return DateTime.fromMillis(bucketStartMillis);
-  }
-  
-  private calculateTimeWeightedMeanForSamples(samples: Sample[]): number {
-    if (samples.length === 1) {
-      return samples[0].value;
-    }
-    
-    let totalWeightedValue = 0;
-    let totalDuration = 0;
-    
-    for (let i = 0; i < samples.length; i++) {
-      const sample = samples[i];
-      let duration: number;
-      
-      if (i === samples.length - 1) {
-        // Last sample - duration is 0 (instantaneous)
-        duration = 0;
-      } else {
-        // Duration from this sample to the next sample
-        const nextSample = samples[i + 1];
-        duration = nextSample.dateTime.diff(sample.dateTime, "milliseconds").as("milliseconds");
-      }
-      
-      totalWeightedValue += sample.value * duration;
-      totalDuration += duration;
-    }
-    
-    // If no duration, return simple average
-    if (totalDuration === 0) {
-      return samples.reduce((sum, s) => sum + s.value, 0) / samples.length;
-    }
-    
-    return totalWeightedValue / totalDuration;
-  }
-  
-  private pruneHistory(tierIndex: number): void {
-    if (tierIndex === this.tiers.length - 1) return; // No higher tier to consider
-    
-    const currentTier = this.tiers[tierIndex];
-    const higherTier = this.tiers[tierIndex + 1];
-    
-    if (!higherTier.current) return;
-    
-    // Keep only history needed for the higher tier's current bucket
-    const higherTierBucketStart = this.getBucketStart(higherTier.current.openAt, higherTier.duration);
-    const cutoffTime = higherTierBucketStart.minus(higherTier.duration);
-    
-    currentTier.history = currentTier.history.filter(
-      candlestick => candlestick.closeAt >= cutoffTime
-    );
-  }
-  
-  getResults(): Array<{ name: string; candlesticks: Candlestick[] }> {
-    return this.tiers.map(tier => ({
-      name: tier.name,
-      candlesticks: [...tier.history, ...(tier.current ? [tier.current] : [])],
-    }));
-  }
-  
-  getAtomics(): Sample[] {
-    return [...this.atomicSamples];
-  }
-}
-
-console.log("Samples");
-renderSmartCandlesticks(atomics);
-const minuteSamples = sliceCandlesticksByGranularity(atomics, "1m");
-console.log("One minute samples");
-renderSmartCandlesticks(minuteSamples, "1m");
-console.log("5 minute samples");
-const fiveMinuteSamples = sliceCandlesticksByGranularity(minuteSamples, "5m");
-renderSmartCandlesticks(fiveMinuteSamples, "5m");
-console.log("1 hour samples");
-const hourSamples = sliceCandlesticksByGranularity(fiveMinuteSamples, "1h");
-renderSmartCandlesticks(hourSamples, "1h");
-console.log("1 day samples");
-const daySamples = sliceCandlesticksByGranularity(hourSamples, "1d");
-renderSmartCandlesticks(daySamples, "1d");
-
-// Test the new streaming approach
-console.log("=== Streaming Multi-Tier Processing ===");
-const processor = new MultiTierProcessor(["1m", "5m", "1h", "1d"]);
-
 // Interactive streaming - press space to advance
 async function runInteractiveStreaming() {
   const decoder = new TextDecoder();
@@ -390,22 +176,37 @@ async function runInteractiveStreaming() {
   const stdin = Deno.stdin;
   await stdin.setRaw(true);
   
+  // Create functional processor
+  const processor = createProcessor(["1m", "5m", "1h", "1d"]);
+  let state = processor;
+  
   try {
     for (let i = 0; i < atomics.length; i++) {
-      const [value, offset] = [atomics[i].open, atomics[i].openAt.diff(baseTime, "seconds").as("seconds")];
-      const sample = toSample(value, baseTime.plus({ seconds: offset }));
+      const sample = atomics[i];
       
-      console.log(`\n--- Iteration ${i + 1}: Sample ${value} at ${sample.dateTime.toFormat("HH:mm:ss")} ---`);
+      console.log(`\n--- Iteration ${i + 1}: Sample ${sample.value} at ${sample.dateTime.toFormat("HH:mm:ss")} ---`);
       
-      const results = processor.processSample(sample);
+      // Process sample through functional processor
+      const result = processSample(state, sample);
+      
+      // Update state with the new state from processing
+      state = result.updatedState;
       
       // Display atomic samples
       console.log("Atomic samples:");
-      const atomicCandlesticks = results.atomics.map(sample => toCandlestick(sample));
+      const atomicCandlesticks = result.atomics.map(sample => ({
+        open: sample.value,
+        close: sample.value,
+        high: sample.value,
+        low: sample.value,
+        mean: sample.value,
+        openAt: sample.dateTime,
+        closeAt: sample.dateTime,
+      }));
       renderSmartCandlesticks(atomicCandlesticks, "1s");
       
       // Display current state of each tier
-      const currentResults = processor.getResults();
+      const currentResults = getResults(state);
       currentResults.forEach(({ name, candlesticks }) => {
         if (candlesticks.length > 0) {
           console.log(`${name} samples:`);
