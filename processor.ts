@@ -32,11 +32,18 @@ export function createProcessor(config: GranularityConfig): ProcessorState {
 }
 
 /**
- * Prunes atomic samples to keep only those needed for the next 1-minute bucket
+ * Prunes atomic samples - drop when closeAt is before the most recent 1m history candlestick
  */
-export function pruneAtomicSamples(samples: Sample[], latestSample: Sample): Sample[] {
-  const oneMinuteDuration = Duration.fromObject({ minutes: 1 });
-  const cutoffTime = latestSample.dateTime.minus(oneMinuteDuration);
+export function pruneAtomicSamples(samples: Sample[], state: ProcessorState): Sample[] {
+  if (state.tiers.length === 0) return samples;
+  
+  const oneMinuteTier = state.tiers[0];
+  if (!oneMinuteTier.history.length) return samples;
+  
+  // Get the closeAt of the most recent 1m history candlestick
+  const mostRecent1mHistory = oneMinuteTier.history[oneMinuteTier.history.length - 1];
+  const cutoffTime = mostRecent1mHistory.closeAt;
+  
   return R.filter(sample => sample.dateTime >= cutoffTime, samples);
 }
 
@@ -102,27 +109,25 @@ export function processTier(tier: TierState, sample: Sample): TierState {
 }
 
 /**
- * Prunes history for a tier based on what's needed by higher tiers
+ * Prunes history for a tier - drop when closeAt is before the most recent higher-tier history candlestick
  */
 export function pruneTierHistory(
   tier: TierState, 
   higherTier: TierState | null
 ): TierState {
-  if (!higherTier?.current) {
+  if (!higherTier || higherTier.history.length === 0) {
     return tier;
   }
-  
-  const higherTierBucketStart = getBucketStart(
-    higherTier.current.openAt, 
-    higherTier.granularity.duration
-  );
-  const cutoffTime = higherTierBucketStart.minus(higherTier.granularity.duration);
-  
+
+  // Only prune up to the closeAt of the last finalized (history) higher-tier candlestick
+  const mostRecentHigherHistory = higherTier.history[higherTier.history.length - 1];
+  const cutoffTime = mostRecentHigherHistory.closeAt;
+
   const prunedHistory = R.filter(
     candlestick => candlestick.closeAt >= cutoffTime,
     tier.history
   );
-  
+
   return {
     ...tier,
     history: prunedHistory,
@@ -133,20 +138,19 @@ export function pruneTierHistory(
  * Processes all tiers with a new sample
  */
 export function processAllTiers(tiers: TierState[], sample: Sample): TierState[] {
-  return R.reduce(
-    (processedTiers: TierState[], tier: TierState) => {
-      const index = processedTiers.length;
-      const processedTier = processTier(tier, sample);
-      
-      // Prune history based on higher tier needs
-      const higherTier = index > 0 ? processedTiers[index - 1] : null;
-      const prunedTier = pruneTierHistory(processedTier, higherTier);
-      
-      return [...processedTiers, prunedTier];
-    },
-    [],
-    tiers
-  );
+  // First, process all tiers without pruning
+  const processedTiers = R.map(tier => processTier(tier, sample), tiers);
+  
+  // Then, prune each tier based on the final state of higher tiers
+  return processedTiers.map((tier, index) => {
+    // For pruning, we want to use the tier two levels above:
+    // - 5m tier should be pruned based on 1h tier history (not 1m tier)
+    // - 1h tier should be pruned based on 1d tier history (not 5m tier)
+    // - 1d tier has no higher tier to prune based on
+    const higherTierIndex = index + 2;
+    const higherTier = higherTierIndex < processedTiers.length ? processedTiers[higherTierIndex] : null;
+    return pruneTierHistory(tier, higherTier);
+  });
 }
 
 /**
@@ -158,7 +162,7 @@ export function processSample(
 ): ProcessingResult {
   // Update atomic samples
   const updatedAtomics = [...state.atomicSamples, sample];
-  const prunedAtomics = pruneAtomicSamples(updatedAtomics, sample);
+  const prunedAtomics = pruneAtomicSamples(updatedAtomics, state);
   
   // Process all tiers
   const updatedTiers = processAllTiers(state.tiers, sample);

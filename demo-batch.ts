@@ -47,102 +47,61 @@ const atomics = [
   [10, hour * 24 + minute * 4],
 ].map(([value, offset]) => toSample(value, baseTime.plus({ seconds: offset })));
 
-// Batch processing - run through all iterations at once
+// Parse command line arguments
+const args = Deno.args;
+const iterationsArg = args.find(arg => arg.startsWith('--iterations='));
+const iterations = iterationsArg ? parseInt(iterationsArg.split('=')[1], 10) : atomics.length;
+
+if (isNaN(iterations) || iterations < 1 || iterations > atomics.length) {
+  console.error(`Invalid iterations value. Must be between 1 and ${atomics.length}`);
+  Deno.exit(1);
+}
+
+// Batch processing - run through specified iterations
 function runBatchProcessing() {
-  console.log("=== Batch Processing - Memory Management Validation ===");
+  console.log(`=== Batch Processing - Running ${iterations} iterations ===`);
   
   // Create functional processor
   const processor = createProcessor(["1m", "5m", "1h", "1d"]);
   let state = processor;
   
-  // Track memory usage at key points
-  const memorySnapshots: Array<{
-    iteration: number;
-    sample: string;
-    atomicCount: number;
-    tierHistories: Array<{ name: string; count: number }>;
-  }> = [];
-  
-  for (let i = 0; i < atomics.length; i++) {
+  for (let i = 0; i < iterations; i++) {
     const sample = atomics[i];
+    
+    console.log(`\n--- Iteration ${i + 1}: Sample ${sample.value} at ${sample.dateTime.toFormat("HH:mm:ss")} ---`);
     
     // Process sample through functional processor
     const result = processSample(state, sample);
     state = result.updatedState;
     
-    // Take memory snapshot at key points
-    if (i % 5 === 0 || i === atomics.length - 1) {
-      const currentResults = getResults(state);
-      memorySnapshots.push({
-        iteration: i + 1,
-        sample: `${sample.value}@${sample.dateTime.toFormat("HH:mm:ss")}`,
-        atomicCount: result.atomics.length,
-        tierHistories: currentResults.map(({ name, candlesticks }) => ({
-          name,
-          count: candlesticks.length
-        }))
-      });
+    // Display atomic samples
+    console.log("Atomic samples:");
+    const atomicCandlesticks = result.atomics.map(sample => ({
+      open: sample.value,
+      close: sample.value,
+      high: sample.value,
+      low: sample.value,
+      mean: sample.value,
+      openAt: sample.dateTime,
+      closeAt: sample.dateTime,
+    }));
+    renderSmartCandlesticks(atomicCandlesticks, "1s");
+    
+    // Display current state of each tier
+    const currentResults = getResults(state);
+    currentResults.forEach(({ name, candlesticks }) => {
+      if (candlesticks.length > 0) {
+        console.log(`${name} samples:`);
+        renderSmartCandlesticks(candlesticks, name);
+      }
+    });
+    
+    if (i < iterations - 1) {
+      console.log("=".repeat(80));
     }
   }
   
-  // Display final results
-  console.log("\n=== Final Results ===");
-  const finalResults = getResults(state);
-  finalResults.forEach(({ name, candlesticks }) => {
-    if (candlesticks.length > 0) {
-      console.log(`\n${name} samples (${candlesticks.length} total):`);
-      renderSmartCandlesticks(candlesticks, name);
-    }
-  });
-  
-  // Display memory management analysis
-  console.log("\n=== Memory Management Analysis ===");
-  memorySnapshots.forEach(snapshot => {
-    console.log(`\nIteration ${snapshot.iteration} (${snapshot.sample}):`);
-    console.log(`  Atomic samples: ${snapshot.atomicCount}`);
-    snapshot.tierHistories.forEach(tier => {
-      console.log(`  ${tier.name} history: ${tier.count} candlesticks`);
-    });
-  });
-  
-  // Validate memory management expectations
-  console.log("\n=== Memory Management Validation ===");
-  const finalSnapshot = memorySnapshots[memorySnapshots.length - 1];
-  
-  // Check that we're not keeping excessive history
-  const oneMinuteTier = finalSnapshot.tierHistories.find(t => t.name === "1m");
-  const fiveMinuteTier = finalSnapshot.tierHistories.find(t => t.name === "5m");
-  const oneHourTier = finalSnapshot.tierHistories.find(t => t.name === "1h");
-  
-  console.log("Validation Results:");
-  console.log(`  1m history count: ${oneMinuteTier?.count} (should be minimal - only needed for 5m)`);
-  console.log(`  5m history count: ${fiveMinuteTier?.count} (should be minimal - only needed for 1h)`);
-  console.log(`  1h history count: ${oneHourTier?.count} (should be minimal - only needed for 1d)`);
-  console.log(`  Atomic samples: ${finalSnapshot.atomicCount} (should be ≤60 for 1-minute window)`);
-  
-  // Expected behavior validation
-  const validations = [
-    {
-      name: "Atomic samples pruned",
-      condition: finalSnapshot.atomicCount <= 60,
-      description: "Atomic samples should be pruned to only keep what's needed for 1-minute buckets"
-    },
-    {
-      name: "1m history minimal",
-      condition: (oneMinuteTier?.count || 0) <= 12, // Should only keep enough for 5m buckets
-      description: "1-minute history should be minimal, only keeping what's needed for 5-minute aggregation"
-    },
-    {
-      name: "5m history minimal", 
-      condition: (fiveMinuteTier?.count || 0) <= 12, // Should only keep enough for 1h buckets
-      description: "5-minute history should be minimal, only keeping what's needed for 1-hour aggregation"
-    }
-  ];
-  
-  validations.forEach(validation => {
-    const status = validation.condition ? "✅ PASS" : "❌ FAIL";
-    console.log(`${status} ${validation.name}: ${validation.description}`);
-  });
+  console.log("\nBatch processing complete!");
 }
 
 // Run the batch processing

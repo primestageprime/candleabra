@@ -7,48 +7,164 @@ import { createProcessor, processSample, getResults } from "./processor.ts";
 
 const baseTime = DateTime.fromISO("2025-06-27T00:00:00Z");
 
-const makeSample = (value: number, offset: number) => toCandlestick(toSample(value, baseTime.plus({ seconds: offset })));
-
 const minute = 60;
 const hour = 60 * minute;
 const day = 24 * hour;
 
 const atomics = [
-  [1, 0],
-  [50, 1],
-  [3, 10],
-  [1, 20],
-  [5, 30],
-  [3, 40],
-  [1, 50],
-  [5, 60],
-  [3, 61],
-  [1, 62],
-  [5, 70],
-  [3, 80],
-  [1, 90],
-  [5, 100],
-  [3, 110],
-  [1, 120],
-  [5, 121],
-  [3, 122],
-  [1, minute * 3],
-  [5, minute * 4],
-  [20, minute * 5],
-  [10, minute * 6],
-  [20, hour + minute * 2],
-  [10, hour + minute * 3],
-  [20, hour + minute * 4],
-  [10, hour + minute * 5],
-  [20, hour * 2 + minute ],
-  [6, hour * 2 + minute * 2],
-  [10, hour * 3 + minute * 3],
-  [20, hour * 3 + minute * 4],
-  [10, hour * 3 + minute * 5],
-  [20, hour * 3 + minute * 6],
-  [10, hour * 24 + minute * 2],
-  [20, hour * 24 + minute * 3],
-  [10, hour * 24 + minute * 4],
+  // === ATOMIC SAMPLES (until we generate a 1-minute sample) ===
+  // First minute: 00:00:00 to 00:01:00
+  [1, 0],      // 00:00:00 - start of minute
+  [50, 30],    // 00:00:30 - middle of minute  
+  [3, 59],     // 00:00:59 - end of minute
+  [1, 60],     // 00:01:00 - start of next minute (triggers 1m completion)
+  
+  // Second minute: 00:01:00 to 00:02:00
+  [5, 90],     // 00:01:30 - middle
+  [10, 119],   // 00:01:59 - end
+  [2, 120],    // 00:02:00 - start of next minute
+  
+  // Third minute: 00:02:00 to 00:03:00
+  [8, 150],    // 00:02:30 - middle
+  [15, 179],   // 00:02:59 - end
+  [4, 180],    // 00:03:00 - start of next minute
+  
+  // Fourth minute: 00:03:00 to 00:04:00
+  [12, 210],   // 00:03:30 - middle
+  [20, 239],   // 00:03:59 - end
+  [6, 240],    // 00:04:00 - start of next minute
+  
+  // Fifth minute: 00:04:00 to 00:05:00
+  [18, 270],   // 00:04:30 - middle
+  [25, 299],   // 00:04:59 - end
+  [9, 300],    // 00:05:00 - start of next minute (triggers 5m completion)
+  
+  // === 1-MINUTE SAMPLES (until we generate a 5-minute sample) ===
+  // First sample at start of 5-minute period
+  [7, 300],    // 00:05:00 - start of period
+  
+  // Sample at 3rd minute
+  [13, 480],   // 00:08:00 - middle of period
+  
+  // Sample at end of 5-minute period
+  [23, 600],   // 00:10:00 - end of period (triggers 5m completion)
+  
+  // === 5-MINUTE SAMPLES (until we generate a 1-hour sample) ===
+  // === 5-MINUTE SAMPLES (until we generate a 1-hour sample) ===
+  // First 5-minute sample at start of hour
+  [26, 630],   // 00:10:30
+  [40, 659],   // 00:10:59
+  [29, 660],   // 00:11:00
+  
+  [33, 690],   // 00:11:30
+  [42, 719],   // 00:11:59
+  [36, 720],   // 00:12:00
+  
+  [37, 750],   // 00:12:30
+  [45, 779],   // 00:12:59
+  [39, 780],   // 00:13:00
+  
+  [41, 810],   // 00:13:30
+  [47, 839],   // 00:13:59
+  [43, 840],   // 00:14:00
+  
+  [44, 870],   // 00:14:30
+  [49, 899],   // 00:14:59
+  [46, 900],   // 00:15:00 (triggers 5m completion)
+  
+  // Middle of hour (around 00:30:00)
+  [91, 1770],  // 00:29:30
+  [93, 1799],  // 00:29:59
+  [92, 1800],  // 00:30:00 (triggers 5m completion)
+  
+  [94, 1830],  // 00:30:30
+  [96, 1859],  // 00:30:59
+  [95, 1860],  // 00:31:00
+  
+  [97, 1890],  // 00:31:30
+  [99, 1919],  // 00:31:59
+  [98, 1920],  // 00:32:00
+  
+  [100, 1950], // 00:32:30
+  [102, 1979], // 00:32:59
+  [101, 1980], // 00:33:00
+  
+  [103, 2010], // 00:33:30
+  [105, 2039], // 00:33:59
+  [104, 2040], // 00:34:00
+  
+  [106, 2070], // 00:34:30
+  [108, 2099], // 00:34:59
+  [107, 2100], // 00:35:00 (triggers 5m completion)
+  
+  // End of hour (around 00:55:00)
+  [169, 3330], // 00:55:30
+  [171, 3359], // 00:55:59
+  [170, 3360], // 00:56:00
+  
+  [172, 3390], // 00:56:30
+  [174, 3419], // 00:56:59
+  [173, 3420], // 00:57:00
+  
+  [175, 3450], // 00:57:30
+  [177, 3479], // 00:57:59
+  [176, 3480], // 00:58:00
+  
+  [178, 3510], // 00:58:30
+  [180, 3539], // 00:58:59
+  [179, 3540], // 00:59:00
+  
+  [181, 3570], // 00:59:30
+  [183, 3599], // 00:59:59
+  [182, 3600], // 01:00:00 - start of next hour (triggers 1h completion)
+  
+  // === 1-HOUR SAMPLES (until we generate a 1-day sample) ===
+  // Continue with hourly samples...
+  [184, 3630], // 01:00:30
+  [186, 3659], // 01:00:59
+  [185, 3660], // 01:01:00
+  
+  [187, 3690], // 01:01:30
+  [189, 3719], // 01:01:59
+  [188, 3720], // 01:02:00
+  
+  // ... continue with hourly samples until we have 24 hours
+  // For brevity, I'll jump to key hours:
+  
+  [190, 3750], // 01:02:30
+  [192, 3779], // 01:02:59
+  [191, 3780], // 01:03:00
+  
+  // Jump to hour 23 (last hour of the day)
+  [200, 23 * hour + 30],   // 23:00:30
+  [202, 23 * hour + 59],   // 23:00:59
+  [201, 23 * hour + 60],   // 23:01:00
+  
+  [203, 23 * hour + 90],   // 23:01:30
+  [205, 23 * hour + 119],  // 23:01:59
+  [204, 23 * hour + 120],  // 23:02:00
+  
+  [206, 23 * hour + 150],  // 23:02:30
+  [208, 23 * hour + 179],  // 23:02:59
+  [207, 23 * hour + 180],  // 23:03:00
+  
+  [209, 23 * hour + 210],  // 23:03:30
+  [211, 23 * hour + 239],  // 23:03:59
+  [210, 23 * hour + 240],  // 23:04:00
+  
+  [212, 23 * hour + 270],  // 23:04:30
+  [214, 23 * hour + 299],  // 23:04:59
+  [213, 23 * hour + 300],  // 23:05:00 (triggers 5m completion)
+  
+  // Continue until we have 24 hours worth of 1-hour samples...
+  [215, 23 * hour + 330],  // 23:05:30
+  [217, 23 * hour + 359],  // 23:05:59
+  [216, 23 * hour + 360],  // 23:06:00
+  
+  // ... continue with more hourly samples until we reach 24 hours
+  
+  // Final sample to trigger day completion
+  [220, 24 * hour],        // 00:00:00 next day (triggers 1d completion)
 ].map(([value, offset]) => toSample(value, baseTime.plus({ seconds: offset })));
 
 
