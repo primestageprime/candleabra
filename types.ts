@@ -60,16 +60,4 @@ export type ProcessingResult = {
  * Configuration for granularities as an array of strings
  * e.g., ["1m", "5m", "1h", "1d"]
  */
-export type GranularityConfig = string[];
-
-// Legacy types for backward compatibility (deprecated)
-export type TierConfig = Granularity;
-export type Tier = TierConfig & {
-  history: Candlestick[];
-  current: Candlestick;
-};
-export type Candelabra = {
-  samples: Sample[];
-  tiers: Tier[];
-  eternal: Candlestick;
-}; 
+export type GranularityConfig = string[]; 
