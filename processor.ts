@@ -37,11 +37,11 @@ export function createProcessor(config: GranularityConfig): ProcessorState {
 export function pruneAtomicSamples(samples: Sample[], state: ProcessorState): Sample[] {
   if (state.tiers.length === 0) return samples;
   
-  const oneMinuteTier = state.tiers[0];
-  if (!oneMinuteTier.history.length) return samples;
+  const smallestTier = state.tiers[0];
+  if (!smallestTier.history.length) return samples;
   
   // Get the closeAt of the most recent 1m history candlestick
-  const mostRecent1mHistory = oneMinuteTier.history[oneMinuteTier.history.length - 1];
+  const mostRecent1mHistory = smallestTier.history[smallestTier.history.length - 1];
   const cutoffTime = mostRecent1mHistory.closeAt;
   
   return R.filter(sample => sample.dateTime >= cutoffTime, samples);
@@ -143,11 +143,11 @@ export function processAllTiers(tiers: TierState[], sample: Sample): TierState[]
   
   // Then, prune each tier based on the final state of higher tiers
   return processedTiers.map((tier, index) => {
-    // For pruning, we want to use the tier two levels above:
+    // For pruning, we want to use the tier one level above:
     // - 5m tier should be pruned based on 1h tier history (not 1m tier)
     // - 1h tier should be pruned based on 1d tier history (not 5m tier)
     // - 1d tier has no higher tier to prune based on
-    const higherTierIndex = index + 2;
+    const higherTierIndex = index + 1;
     const higherTier = higherTierIndex < processedTiers.length ? processedTiers[higherTierIndex] : null;
     return pruneTierHistory(tier, higherTier);
   });
