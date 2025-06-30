@@ -15,7 +15,7 @@ A TypeScript library for processing time-series data into multi-tier candlestick
 
 ```bash
 # Using Deno
-import { createProcessor, processSample, toSample } from "https://deno.land/x/candleabra@0.1.12/mod.ts";
+import { createProcessor, processSample, toSample } from "jsr:@primestage/candleabra";
 
 # Using npm (if published)
 npm install @primestage/candleabra
@@ -273,6 +273,37 @@ deno task demo-batch
 # Run with custom tiers
 deno task demo-extended
 ```
+
+## Publishing to JSR (jsr.io)
+
+To publish this module to [jsr.io](https://jsr.io) (the Deno/TypeScript package registry):
+
+1. **Login to JSR**
+   ```bash
+   deno publish login
+   ```
+   Follow the prompts to authenticate with your GitHub account.
+
+2. **Publish a new version**
+   - Make sure your `deno.json` has the correct `name`, `version`, and `exports` fields.
+   - Bump the version number in `deno.json` before each publish.
+   - Run:
+     ```bash
+     deno publish
+     ```
+   - Follow the prompts to confirm the publish.
+
+3. **Check your package**
+   - Visit `https://jsr.io/@primestage/candleabra` to see your published module.
+
+4. **Versioning**
+   - Always increment the `version` in `deno.json` before publishing a new release.
+   - Use semantic versioning (e.g., `0.1.0`, `0.2.0`, `1.0.0`).
+
+5. **More info**
+   - See the [JSR documentation](https://jsr.io/docs/publishing) for advanced options and troubleshooting.
+
+---
 
 ## License
 
