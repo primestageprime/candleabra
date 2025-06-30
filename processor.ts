@@ -14,6 +14,8 @@ import { toCandlestick, samplesToCandlestick } from "./candlestick.ts";
 
 /**
  * Creates initial processor state from granularity configuration
+ * @param config - Array of granularity strings (e.g., ["1m", "5m", "1h", "1d"])
+ * @returns Initial processor state with empty tiers
  */
 export function createProcessor(config: GranularityConfig): ProcessorState {
   const granularities = createGranularities(config);
@@ -32,7 +34,8 @@ export function createProcessor(config: GranularityConfig): ProcessorState {
 }
 
 /**
- * Prunes atomic samples - drop when closeAt is before the most recent 1m history candlestick
+ * Prunes atomic samples by removing those older than the most recent 1m history candlestick
+ * This prevents memory bloat from accumulating atomic samples
  */
 export function pruneAtomicSamples(samples: Sample[], state: ProcessorState): Sample[] {
   if (state.tiers.length === 0) return samples;
@@ -49,13 +52,14 @@ export function pruneAtomicSamples(samples: Sample[], state: ProcessorState): Sa
 
 /**
  * Processes a single tier with a new sample
+ * Handles bucket transitions and candlestick aggregation
  */
 export function processTier(tier: TierState, sample: Sample): TierState {
   const { granularity, current, history, samples } = tier;
   const sampleCandlestick = toCandlestick(sample);
   
   if (!current) {
-    // First sample for this tier
+    // First sample for this tier - create initial candlestick
     const bucketStart = getBucketStart(sample.dateTime, granularity.duration);
     
     return {
@@ -63,7 +67,7 @@ export function processTier(tier: TierState, sample: Sample): TierState {
       current: {
         ...sampleCandlestick,
         openAt: bucketStart,
-        closeAt: sample.dateTime,
+        closeAt: sample.dateTime, // Current candlestick tracks latest sample time
       },
       samples: [sample],
     };
@@ -74,12 +78,12 @@ export function processTier(tier: TierState, sample: Sample): TierState {
   const currentBucketStart = getBucketStart(current.openAt, granularity.duration);
   
   if (bucketStart.equals(currentBucketStart)) {
-    // Same bucket - update current candlestick
+    // Same bucket - update current candlestick with new sample
     const updatedSamples = [...samples, sample];
     const updatedCandlestick = samplesToCandlestick(
       updatedSamples,
       current.openAt,
-      sample.dateTime
+      sample.dateTime // Current candlestick tracks latest sample time
     );
     
     return {
@@ -88,11 +92,11 @@ export function processTier(tier: TierState, sample: Sample): TierState {
       samples: updatedSamples,
     };
   } else {
-    // New bucket - historize current and start new
+    // New bucket - finalize current candlestick and start new one
     const bucketEnd = currentBucketStart.plus(granularity.duration);
     const completedCandlestick = {
       ...current,
-      closeAt: bucketEnd,
+      closeAt: bucketEnd, // Finalized candlestick uses bucket end time
     };
     
     return {
@@ -100,7 +104,7 @@ export function processTier(tier: TierState, sample: Sample): TierState {
       current: {
         ...sampleCandlestick,
         openAt: bucketStart,
-        closeAt: sample.dateTime,
+        closeAt: sample.dateTime, // Current candlestick tracks latest sample time
       },
       history: [...history, completedCandlestick],
       samples: [sample],
@@ -109,7 +113,8 @@ export function processTier(tier: TierState, sample: Sample): TierState {
 }
 
 /**
- * Prunes history for a tier - drop when closeAt is before the most recent higher-tier history candlestick
+ * Prunes history for a tier based on higher-tier completion
+ * Only keeps history that's newer than the most recent higher-tier finalized candlestick
  */
 export function pruneTierHistory(
   tier: TierState, 
@@ -135,10 +140,11 @@ export function pruneTierHistory(
 }
 
 /**
- * Processes all tiers with a new sample
+ * Processes all tiers with a new sample and applies pruning
+ * This is the main orchestration function for multi-tier processing
  */
 export function processAllTiers(tiers: TierState[], sample: Sample): TierState[] {
-  // First, process all tiers without pruning
+  // First, process all tiers without pruning to get final state
   const processedTiers = R.map(tier => processTier(tier, sample), tiers);
   
   // Then, prune each tier based on the final state of higher tiers
@@ -155,19 +161,20 @@ export function processAllTiers(tiers: TierState[], sample: Sample): TierState[]
 
 /**
  * Main processing function - processes a single sample through all tiers
+ * This is the primary entry point for the streaming processor
  */
 export function processSample(
   state: ProcessorState, 
   sample: Sample
 ): ProcessingResult {
-  // Update atomic samples
+  // Update atomic samples with pruning
   const updatedAtomics = [...state.atomicSamples, sample];
   const prunedAtomics = pruneAtomicSamples(updatedAtomics, state);
   
   // Process all tiers
   const updatedTiers = processAllTiers(state.tiers, sample);
   
-  // Get current results from each tier
+  // Get current results from each tier (for backward compatibility)
   const tierResults = R.chain(
     tier => tier.current ? [tier.current] : [],
     updatedTiers
@@ -186,6 +193,7 @@ export function processSample(
 
 /**
  * Gets final results from processor state
+ * Returns an array of tier results with candlesticks (history + current)
  */
 export function getResults(state: ProcessorState): Array<{ name: string; candlesticks: Candlestick[] }> {
   return R.map(tier => ({

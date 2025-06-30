@@ -1,5 +1,5 @@
 // Main exports for the candlestick processing library
-export { toCandlestick, reduceCandlesticks, toSample } from "./candlestick.ts";
+export { toCandlestick, reduceCandlesticks, toSample, samplesToCandlestick } from "./candlestick.ts";
 export { parseGranularity } from "./granularity.ts";
 export { createProcessor, processSample, getResults } from "./processor.ts";
 
