@@ -6,7 +6,10 @@
   "tasks": {
     "test": "deno test --allow-read",
     "render-candlesticks": "deno run --allow-run --allow-read --allow-write renderCandlesticks.ts",
-    "demo": "deno run --allow-run --allow-read --allow-write demo.ts"
+    "demo": "deno run --allow-run --allow-read --allow-write demo.ts",
+    "demo-default": "deno run --allow-read demo-configurable.ts default",
+    "demo-extended": "deno run --allow-read demo-configurable.ts extended",
+    "demo-batch": "deno run --allow-read demo-batch.ts"
   },
   "imports": {
     "@types/ramda": "npm:@types/ramda@^0.30.2",

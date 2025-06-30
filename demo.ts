@@ -83,8 +83,9 @@ const atomics = [
   [195, 3870], // 04:30:00
   
   // Jump to hour 23 (last hour of the day)
-  [200, 23 * hour + 30],   // 23:00:30
-  [202, 23 * hour + 59],   // 23:59:59
+  [200, 23 * hour + 30],   // 15:00:00
+  [202, 23 * hour + 59],   // 15:59:59
+  [201, 24 * hour],        // 16:00:00 - start of next day (triggers 1d completion)
   
   // Final sample to trigger day completion
   [220, 24 * hour],        // 00:00:00 next day (triggers 1d completion)

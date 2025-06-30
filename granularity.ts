@@ -15,10 +15,17 @@ export function parseGranularity(granularity: string): Granularity {
   const amount = parseInt(amountStr, 10);
   
   // Validate that the amount divides evenly into the base unit
-  const baseUnits = { m: 60, h: 24, d: 1 };
-  const baseUnit = baseUnits[unit as keyof typeof baseUnits];
-  if (baseUnit % amount !== 0) {
-    throw new Error(`Invalid granularity: ${granularity}. ${amount} does not divide evenly into ${baseUnit} ${unit}`);
+  // For minutes: must divide 60 evenly
+  // For hours: must divide 24 evenly  
+  // For days: any positive integer is allowed
+  if (unit === 'm' && 60 % amount !== 0) {
+    throw new Error(`Invalid granularity: ${granularity}. ${amount} does not divide evenly into 60 minutes`);
+  }
+  if (unit === 'h' && 24 % amount !== 0) {
+    throw new Error(`Invalid granularity: ${granularity}. ${amount} does not divide evenly into 24 hours`);
+  }
+  if (unit === 'd' && amount <= 0) {
+    throw new Error(`Invalid granularity: ${granularity}. Days must be a positive integer`);
   }
   
   let duration: Duration;
