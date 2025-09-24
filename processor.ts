@@ -1,8 +1,6 @@
-import { DateTime, Duration } from "luxon";
 import * as R from "ramda";
 import type {
   Candlestick,
-  Granularity,
   GranularityConfig,
   ProcessingResult,
   ProcessorState,
@@ -51,7 +49,7 @@ export function pruneAtomicSamples(
     smallestTier.history[smallestTier.history.length - 1];
   const cutoffTime = mostRecentSmallestTierHistory.closeAt;
 
-  return R.filter((sample) => sample.dateTime >= cutoffTime, samples);
+  return R.filter((sample) => sample.timestamp >= cutoffTime, samples);
 }
 
 /**
@@ -64,33 +62,36 @@ export function processTier(tier: TierState, sample: Sample): TierState {
 
   if (!current) {
     // First sample for this tier - create initial candlestick
-    const bucketStart = getBucketStart(sample.dateTime, granularity.duration);
+    const bucketStart = getBucketStart(
+      sample.timestamp,
+      granularity.durationMs,
+    );
 
     return {
       ...tier,
       current: {
         ...sampleCandlestick,
         openAt: bucketStart,
-        closeAt: sample.dateTime, // Current candlestick tracks latest sample time
+        closeAt: sample.timestamp, // Current candlestick tracks latest sample time
       },
       samples: [sample],
     };
   }
 
   // Check if this sample starts a new bucket
-  const bucketStart = getBucketStart(sample.dateTime, granularity.duration);
+  const bucketStart = getBucketStart(sample.timestamp, granularity.durationMs);
   const currentBucketStart = getBucketStart(
     current.openAt,
-    granularity.duration,
+    granularity.durationMs,
   );
 
-  if (bucketStart.equals(currentBucketStart)) {
+  if (bucketStart === currentBucketStart) {
     // Same bucket - update current candlestick with new sample
     const updatedSamples = [...samples, sample];
     const updatedCandlestick = samplesToCandlestick(
       updatedSamples,
       current.openAt,
-      sample.dateTime, // Current candlestick tracks latest sample time
+      sample.timestamp, // Current candlestick tracks latest sample time
     );
 
     return {
@@ -100,7 +101,7 @@ export function processTier(tier: TierState, sample: Sample): TierState {
     };
   } else {
     // New bucket - finalize current candlestick and start new one
-    const bucketEnd = currentBucketStart.plus(granularity.duration);
+    const bucketEnd = currentBucketStart + granularity.durationMs;
     const completedCandlestick = {
       ...current,
       closeAt: bucketEnd, // Finalized candlestick uses bucket end time
@@ -111,7 +112,7 @@ export function processTier(tier: TierState, sample: Sample): TierState {
       current: {
         ...sampleCandlestick,
         openAt: bucketStart,
-        closeAt: sample.dateTime, // Current candlestick tracks latest sample time
+        closeAt: sample.timestamp, // Current candlestick tracks latest sample time
       },
       history: [...history, completedCandlestick],
       samples: [sample],
@@ -186,7 +187,7 @@ export function processSample(
     : null;
 
   if (
-    newestProcessedSample && sample.dateTime <= newestProcessedSample.dateTime
+    newestProcessedSample && sample.timestamp <= newestProcessedSample.timestamp
   ) {
     // Sample is not newer than the newest processed sample - throw it away
     return {

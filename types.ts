@@ -1,10 +1,8 @@
-import { DateTime, Duration } from "luxon";
-
 /**
  * Represents a single data point with a value and timestamp
  */
 export type Sample = {
-  dateTime: DateTime;
+  timestamp: number; // Unix epoch milliseconds
   value: number;
 };
 
@@ -17,8 +15,8 @@ export type Candlestick = {
   high: number;
   low: number;
   mean: number;
-  openAt: DateTime;
-  closeAt: DateTime;
+  openAt: number; // Unix epoch milliseconds
+  closeAt: number; // Unix epoch milliseconds
 };
 
 /**
@@ -26,7 +24,7 @@ export type Candlestick = {
  */
 export type Granularity = {
   name: string;
-  duration: Duration;
+  durationMs: number; // Duration in milliseconds
 };
 
 /**
@@ -60,4 +58,4 @@ export type ProcessingResult = {
  * Configuration for granularities as an array of strings
  * e.g., ["1m", "5m", "1h", "1d"]
  */
-export type GranularityConfig = string[]; 
+export type GranularityConfig = string[];

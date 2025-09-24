@@ -1,13 +1,11 @@
-import { DateTime } from "luxon";
 import { renderSmartCandlesticks } from "./renderCandlesticks.ts";
 import { toSample } from "./candlestick.ts";
-import { createProcessor, processSample, getResults } from "./processor.ts";
+import { createProcessor, getResults, processSample } from "./processor.ts";
 
-const baseTime = DateTime.fromISO("2025-06-27T00:00:00Z");
+const baseTime = new Date("2025-06-27T00:00:00Z").getTime();
 
-const minute = 60;
+const minute = 60 * 1000; // milliseconds
 const hour = 60 * minute;
-const day = 24 * hour;
 
 const atomics = [
   [1, 0],
@@ -36,7 +34,7 @@ const atomics = [
   [10, hour + minute * 3],
   [20, hour + minute * 4],
   [10, hour + minute * 5],
-  [20, hour * 2 + minute ],
+  [20, hour * 2 + minute],
   [6, hour * 2 + minute * 2],
   [10, hour * 3 + minute * 3],
   [20, hour * 3 + minute * 4],
@@ -45,45 +43,49 @@ const atomics = [
   [10, hour * 24 + minute * 2],
   [20, hour * 24 + minute * 3],
   [10, hour * 24 + minute * 4],
-].map(([value, offset]) => toSample(value, baseTime.plus({ seconds: offset })));
+].map(([value, offset]) => toSample(value, baseTime + offset * 1000));
 
 // Interactive streaming - press space to advance
 async function runInteractiveStreaming() {
   const decoder = new TextDecoder();
-  
+
   // Set up stdin for raw mode
   const stdin = Deno.stdin;
   await stdin.setRaw(true);
-  
+
   // Create functional processor
   const processor = createProcessor(["1m", "5m", "1h", "1d"]);
   let state = processor;
-  
+
   try {
     for (let i = 0; i < atomics.length; i++) {
       const sample = atomics[i];
-      
-      console.log(`\n--- Iteration ${i + 1}: Sample ${sample.value} at ${sample.dateTime.toFormat("HH:mm:ss")} ---`);
-      
+
+      const date = new Date(sample.timestamp);
+      const timeStr = date.toISOString().substr(11, 8);
+      console.log(
+        `\n--- Iteration ${i + 1}: Sample ${sample.value} at ${timeStr} ---`,
+      );
+
       // Process sample through functional processor
       const result = processSample(state, sample);
-      
+
       // Update state with the new state from processing
       state = result.updatedState;
-      
+
       // Display atomic samples
       console.log("Atomic samples:");
-      const atomicCandlesticks = result.atomics.map(sample => ({
+      const atomicCandlesticks = result.atomics.map((sample) => ({
         open: sample.value,
         close: sample.value,
         high: sample.value,
         low: sample.value,
         mean: sample.value,
-        openAt: sample.dateTime,
-        closeAt: sample.dateTime,
+        openAt: sample.timestamp,
+        closeAt: sample.timestamp,
       }));
       renderSmartCandlesticks(atomicCandlesticks, "1s");
-      
+
       // Display current state of each tier
       const currentResults = getResults(state);
       currentResults.forEach(({ name, candlesticks }) => {
@@ -92,16 +94,16 @@ async function runInteractiveStreaming() {
           renderSmartCandlesticks(candlesticks, name);
         }
       });
-      
+
       if (i < atomics.length - 1) {
         console.log("\nPress SPACE to continue to next iteration...");
-        
+
         // Wait for space key
         while (true) {
           const buffer = new Uint8Array(1);
           await stdin.read(buffer);
           const char = decoder.decode(buffer);
-          
+
           if (char === " ") {
             break;
           } else if (char === "\u0003") { // Ctrl+C
@@ -110,10 +112,10 @@ async function runInteractiveStreaming() {
           }
         }
       }
-      
+
       console.log("=".repeat(80));
     }
-    
+
     console.log("\nStreaming complete!");
   } finally {
     // Restore stdin to normal mode
@@ -122,4 +124,4 @@ async function runInteractiveStreaming() {
 }
 
 // Run the interactive streaming
-await runInteractiveStreaming(); 
+await runInteractiveStreaming();
