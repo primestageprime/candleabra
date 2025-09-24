@@ -40,7 +40,6 @@ const tiers = ["1m", "5m", "1h", "1d"];
 const processor = createProcessor(tiers);
 let state = processor;
 
-// Process samples using Unix epoch milliseconds
 const sample1 = toSample(100, new Date("2025-01-01T10:00:00Z").getTime());
 const result1 = processSample(state, sample1);
 state = result1.updatedState;
@@ -59,7 +58,6 @@ results.forEach(({ name, candlesticks }) => {
 ### Advanced Example: Real-time Trading Data
 
 ```typescript
-// No longer using Luxon - using Unix epoch milliseconds instead
 import {
   createProcessor,
   processSample,

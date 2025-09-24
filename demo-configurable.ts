@@ -1,4 +1,3 @@
-// No longer using Luxon
 import { renderSmartCandlesticks } from "./renderCandlesticks.ts";
 import { toSample } from "./candlestick.ts";
 import { createProcessor, getResults, processSample } from "./processor.ts";
