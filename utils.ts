@@ -1,15 +1,14 @@
 import * as R from "ramda";
 import type { NonEmptyArray } from "npm:@types/ramda@0.30.2";
 import type { Candlestick } from "./types.ts";
-import { DateTime } from "luxon";
 
 /**
  * Gets the openAt time from the first candlestick in a list
  */
-export const getOpenAt: (list: NonEmptyArray<Candlestick>) => DateTime = R.pipe<
+export const getOpenAt: (list: NonEmptyArray<Candlestick>) => number = R.pipe<
   [NonEmptyArray<Candlestick>],
   Candlestick,
-  DateTime
+  number
 >(
   R.head,
   R.prop("openAt"),
@@ -18,8 +17,8 @@ export const getOpenAt: (list: NonEmptyArray<Candlestick>) => DateTime = R.pipe<
 /**
  * Gets the closeAt time from the last candlestick in a list
  */
-export const getCloseAt: (list: NonEmptyArray<Candlestick>) => DateTime = R
-  .pipe<[NonEmptyArray<Candlestick>], Candlestick, DateTime>(
+export const getCloseAt: (list: NonEmptyArray<Candlestick>) => number = R
+  .pipe<[NonEmptyArray<Candlestick>], Candlestick, number>(
     R.last,
     R.prop("closeAt"),
   );

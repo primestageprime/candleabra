@@ -1,12 +1,11 @@
 import type { Candlestick } from "./types.d.ts";
-import { DateTime } from "luxon";
 import * as R from "ramda";
 
 const CELL_WIDTH = 10;
 const YELLOW = "\x1b[33m";
 const RESET = "\x1b[0m";
 const BORDER = "\x1b[36m"; // Cyan for borders
-const DETAIL_MARGIN = 3
+const DETAIL_MARGIN = 3;
 const WHITE = "\x1b[37m"; // Added for partial candlesticks
 
 function formatCell(
@@ -31,8 +30,12 @@ function formatNumber(value: number): string {
   return formatCell(str, CELL_WIDTH, "center");
 }
 
-function formatTime(dt: DateTime): string {
-  return formatCell(dt.toFormat("HH:mm:ss"), CELL_WIDTH);
+function formatTime(timestamp: number): string {
+  const date = new Date(timestamp);
+  const hours = date.getUTCHours().toString().padStart(2, "0");
+  const minutes = date.getUTCMinutes().toString().padStart(2, "0");
+  const seconds = date.getUTCSeconds().toString().padStart(2, "0");
+  return formatCell(`${hours}:${minutes}:${seconds}`, CELL_WIDTH);
 }
 
 function renderCandlestickGrid(
@@ -43,13 +46,15 @@ function renderCandlestickGrid(
   // Top, mid, bottom borders
   const borderStyle = isPartial ? "═" : "─";
   const cornerStyle = isPartial ? "╔╗╚╝" : "┌┐└┘";
-  
+
   const top = BORDER + cornerStyle[0] + borderStyle.repeat(CELL_WIDTH) + "┬" +
-    borderStyle.repeat(CELL_WIDTH) + "┬" + borderStyle.repeat(CELL_WIDTH) + cornerStyle[1] + RESET;
+    borderStyle.repeat(CELL_WIDTH) + "┬" + borderStyle.repeat(CELL_WIDTH) +
+    cornerStyle[1] + RESET;
   const mid = BORDER + "├" + "─".repeat(CELL_WIDTH) + "┼" +
     "─".repeat(CELL_WIDTH) + "┼" + "─".repeat(CELL_WIDTH) + "┤" + RESET;
   const bot = BORDER + cornerStyle[2] + borderStyle.repeat(CELL_WIDTH) + "┴" +
-    borderStyle.repeat(CELL_WIDTH) + "┴" + borderStyle.repeat(CELL_WIDTH) + cornerStyle[3] + RESET;
+    borderStyle.repeat(CELL_WIDTH) + "┴" + borderStyle.repeat(CELL_WIDTH) +
+    cornerStyle[3] + RESET;
 
   // Color for partial candlesticks
   const textColor = isPartial ? WHITE : YELLOW;
@@ -99,44 +104,41 @@ function renderMultipleCandlesticks(
 }
 
 function generateSecondLevelCandlesticks(): Candlestick[] {
+  const baseTime = new Date("2024-01-01T10:00:00Z").getTime();
   return Array.from({ length: 5 }, (_, i) => ({
     open: 1.0 + i * 0.5,
     close: 2.0 + i * 0.3,
     high: 3.0 + i * 0.2,
     low: 0.5 + i * 0.1,
     mean: 1.5 + i * 0.4,
-    openAt: DateTime.fromISO(`2024-01-01T10:00:0${i}`),
-    closeAt: DateTime.fromISO(`2024-01-01T10:00:0${i + 1}`),
+    openAt: baseTime + i * 1000,
+    closeAt: baseTime + (i + 1) * 1000,
   }));
 }
 
 function generateMinuteLevelCandlesticks(): Candlestick[] {
+  const baseTime = new Date("2024-01-01T10:00:00Z").getTime();
   return Array.from({ length: 3 }, (_, i) => ({
     open: 2.0 + i * 1.0,
     close: 3.0 + i * 0.8,
     high: 4.0 + i * 0.5,
     low: 1.0 + i * 0.3,
     mean: 2.5 + i * 0.7,
-    openAt: DateTime.fromISO(`2024-01-01T10:${String(i).padStart(2, "0")}:00`),
-    closeAt: DateTime.fromISO(
-      `2024-01-01T10:${String(i + 1).padStart(2, "0")}:00`,
-    ),
+    openAt: baseTime + i * 60 * 1000,
+    closeAt: baseTime + (i + 1) * 60 * 1000,
   }));
 }
 
 function generateHourLevelCandlesticks(): Candlestick[] {
+  const baseTime = new Date("2024-01-01T10:00:00Z").getTime();
   return Array.from({ length: 2 }, (_, i) => ({
     open: 5.0 + i * 2.0,
     close: 6.0 + i * 1.5,
     high: 7.0 + i * 1.0,
     low: 4.0 + i * 0.8,
     mean: 5.5 + i * 1.2,
-    openAt: DateTime.fromISO(
-      `2024-01-01T${String(10 + i).padStart(2, "0")}:00:00`,
-    ),
-    closeAt: DateTime.fromISO(
-      `2024-01-01T${String(11 + i).padStart(2, "0")}:00:00`,
-    ),
+    openAt: baseTime + i * 60 * 60 * 1000,
+    closeAt: baseTime + (i + 1) * 60 * 60 * 1000,
   }));
 }
 
@@ -183,7 +185,7 @@ export function renderSmartCandlesticks(
 }
 
 function generateLargeSamples() {
-  const baseTime = DateTime.fromISO("2024-01-01T10:00:00");
+  const baseTime = new Date("2024-01-01T10:00:00Z").getTime();
 
   // 120 second-level
   const seconds = Array.from({ length: 120 }, (_, i) => ({
@@ -192,8 +194,8 @@ function generateLargeSamples() {
     high: 3 + i * 0.01,
     low: 0.5 + i * 0.01,
     mean: 1.5 + i * 0.01,
-    openAt: baseTime.plus({ seconds: i }),
-    closeAt: baseTime.plus({ seconds: i + 1 }),
+    openAt: baseTime + i * 1000,
+    closeAt: baseTime + (i + 1) * 1000,
   }));
 
   // 120 minute-level
@@ -203,8 +205,8 @@ function generateLargeSamples() {
     high: 4 + i * 0.02,
     low: 1 + i * 0.02,
     mean: 2.5 + i * 0.02,
-    openAt: baseTime.plus({ minutes: i }),
-    closeAt: baseTime.plus({ minutes: i + 1 }),
+    openAt: baseTime + i * 60 * 1000,
+    closeAt: baseTime + (i + 1) * 60 * 1000,
   }));
 
   // 3 hour-level
@@ -214,8 +216,8 @@ function generateLargeSamples() {
     high: 7 + i * 1,
     low: 4 + i * 0.8,
     mean: 5.5 + i * 1.2,
-    openAt: baseTime.plus({ hours: i }),
-    closeAt: baseTime.plus({ hours: i + 1 }),
+    openAt: baseTime + i * 60 * 60 * 1000,
+    closeAt: baseTime + (i + 1) * 60 * 60 * 1000,
   }));
 
   return { seconds, minutes, hours };

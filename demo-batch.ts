@@ -1,11 +1,10 @@
-import { DateTime } from "luxon";
 import { renderSmartCandlesticks } from "./renderCandlesticks.ts";
 import { toSample } from "./candlestick.ts";
-import { createProcessor, processSample, getResults } from "./processor.ts";
+import { createProcessor, getResults, processSample } from "./processor.ts";
 
-const baseTime = DateTime.fromISO("2025-06-27T00:00:00Z");
+const baseTime = new Date("2025-06-27T00:00:00Z").getTime();
 
-const minute = 60;
+const minute = 60 * 1000; // milliseconds
 const hour = 60 * minute;
 const day = 24 * hour;
 
@@ -36,7 +35,7 @@ const atomics = [
   [10, hour + minute * 3],
   [20, hour + minute * 4],
   [10, hour + minute * 5],
-  [20, hour * 2 + minute ],
+  [20, hour * 2 + minute],
   [6, hour * 2 + minute * 2],
   [10, hour * 3 + minute * 3],
   [20, hour * 3 + minute * 4],
@@ -45,48 +44,56 @@ const atomics = [
   [10, hour * 24 + minute * 2],
   [20, hour * 24 + minute * 3],
   [10, hour * 24 + minute * 4],
-].map(([value, offset]) => toSample(value, baseTime.plus({ seconds: offset })));
+].map(([value, offset]) => toSample(value, baseTime + offset * 1000));
 
 // Parse command line arguments
 const args = Deno.args;
-const iterationsArg = args.find(arg => arg.startsWith('--iterations='));
-const iterations = iterationsArg ? parseInt(iterationsArg.split('=')[1], 10) : atomics.length;
+const iterationsArg = args.find((arg) => arg.startsWith("--iterations="));
+const iterations = iterationsArg
+  ? parseInt(iterationsArg.split("=")[1], 10)
+  : atomics.length;
 
 if (isNaN(iterations) || iterations < 1 || iterations > atomics.length) {
-  console.error(`Invalid iterations value. Must be between 1 and ${atomics.length}`);
+  console.error(
+    `Invalid iterations value. Must be between 1 and ${atomics.length}`,
+  );
   Deno.exit(1);
 }
 
 // Batch processing - run through specified iterations
 function runBatchProcessing() {
   console.log(`=== Batch Processing - Running ${iterations} iterations ===`);
-  
+
   // Create functional processor
   const processor = createProcessor(["1m", "5m", "1h", "1d"]);
   let state = processor;
-  
+
   for (let i = 0; i < iterations; i++) {
     const sample = atomics[i];
-    
-    console.log(`\n--- Iteration ${i + 1}: Sample ${sample.value} at ${sample.dateTime.toFormat("HH:mm:ss")} ---`);
-    
+
+    const date = new Date(sample.timestamp);
+    const timeStr = date.toISOString().substr(11, 8);
+    console.log(
+      `\n--- Iteration ${i + 1}: Sample ${sample.value} at ${timeStr} ---`,
+    );
+
     // Process sample through functional processor
     const result = processSample(state, sample);
     state = result.updatedState;
-    
+
     // Display atomic samples
     console.log("Atomic samples:");
-    const atomicCandlesticks = result.atomics.map(sample => ({
+    const atomicCandlesticks = result.atomics.map((sample) => ({
       open: sample.value,
       close: sample.value,
       high: sample.value,
       low: sample.value,
       mean: sample.value,
-      openAt: sample.dateTime,
-      closeAt: sample.dateTime,
+      openAt: sample.timestamp,
+      closeAt: sample.timestamp,
     }));
     renderSmartCandlesticks(atomicCandlesticks, "1s");
-    
+
     // Display current state of each tier
     const currentResults = getResults(state);
     currentResults.forEach(({ name, candlesticks }) => {
@@ -95,14 +102,14 @@ function runBatchProcessing() {
         renderSmartCandlesticks(candlesticks, name);
       }
     });
-    
+
     if (i < iterations - 1) {
       console.log("=".repeat(80));
     }
   }
-  
+
   console.log("\nBatch processing complete!");
 }
 
 // Run the batch processing
-runBatchProcessing(); 
+runBatchProcessing();
